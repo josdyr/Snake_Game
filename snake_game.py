@@ -35,13 +35,16 @@ class Game:
     def Start(self):
         while True:
             for body in bodies_to_be_added:
-                snake.add_body(body)
 
                 os.system('clear')
+
+                snake.add_body(body)
                 game.board.set_snake()
                 game.board.draw_board()
 
                 time.sleep(1)
+
+            break
 
 class Snake:
     snake_head_char = "H"
@@ -66,6 +69,12 @@ bodies_to_be_added = [[3,0], [4,0], [5,0]]
 
 snake = Snake(INIT_SNAKE_POSITIONS)
 game = Game()
+
+os.system('clear')
+game.board.set_snake()
+game.board.draw_board()
+time.sleep(1)
+
 game.Start()
 
 # game.board.set_snake()
