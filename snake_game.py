@@ -30,10 +30,10 @@ class Board:
         self.board[x][y] = apple
 
     def draw_board(self):
-        # os.system('clear')
+        os.system('clear')
         for x, row in enumerate(self.board):
             for y, col in enumerate(row):
-                if self.board[x][y] == snake.snake_head:
+                if self.board[x][y] == snake.snake_body[0]:
                     print("[H]", end='')
                 elif isinstance(self.board[x][y], Apple):
                     print("{}".format("[ ]" if col is None else "[A]"), end='')
@@ -41,30 +41,9 @@ class Board:
                     print("{}".format("[ ]" if col is None else "[B]"), end='')
             print()
 
-class Game:
-    board = Board()
-
-    def start(self):
-
-        while True:
-            for body in bodies_to_be_added:
-                tail = snake.move([0,1])
-                # snake.add_body(body)
-
-                game.board.set_snake(tail=tail)
-                game.board.draw_board()
-                time.sleep(1)
-            game.board.set_apple()
-            time.sleep(1)
-            break
-
 class Snake:
-    snake_head_char = "H"
-    snake_body_char = "B"
-
     def __init__(self, INIT_SNAKE_POSITIONS):
         self.snake_body = INIT_SNAKE_POSITIONS
-        self.snake_head = self.snake_body[0]
 
     def reset_snake(self):
         self.snake_body = INIT_SNAKE_POSITIONS
@@ -86,6 +65,32 @@ class Apple:
     def __init__(self):
         self.apple = [random.randint(0, BOARD_SIZE-1), random.randint(0, BOARD_SIZE-1)]
 
+class Game:
+    board = Board()
+
+    def start(self):
+
+        while True:
+            for body in bodies_to_be_added:
+
+                tail = snake.move([0,1])
+                game.board.set_snake(tail=tail)
+                game.board.draw_board()
+                time.sleep(1)
+
+                tail = snake.move([0,2])
+                game.board.set_snake(tail=tail)
+                game.board.draw_board()
+                time.sleep(1)
+
+                tail = snake.move([1,2])
+                game.board.set_snake(tail=tail)
+                game.board.draw_board()
+                time.sleep(1)
+
+            game.board.set_apple()
+            time.sleep(1)
+            break
 
 
 bodies_to_be_added = [[3,0]]
@@ -99,5 +104,6 @@ apple = Apple()
 game.board.set_snake()
 game.board.set_apple()
 game.board.draw_board()
+
 time.sleep(1)
 game.start()
