@@ -8,6 +8,8 @@ INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 
 
 class Board:
+    """Holds the board with the peices if any otherwise None"""
+
     board = [[None for y in range(BOARD_SIZE)] for x in range(BOARD_SIZE)]
 
     def set_snake(self, tail=None):
@@ -30,7 +32,7 @@ class Board:
         self.board[x][y] = apple
 
     def draw_board(self):
-        os.system('clear')
+        # os.system('clear')
         for x, row in enumerate(self.board):
             for y, col in enumerate(row):
                 if self.board[x][y] == snake.snake_body[0]:
@@ -41,7 +43,20 @@ class Board:
                     print("{}".format("[ ]" if col is None else "[B]"), end='')
             print()
 
+    def __str__(self):
+        board_str = ""
+        for row in self.board:
+            for col in row:
+                if col is None:
+                    board_str += "[" + str(col) + "],"
+                else:
+                    board_str += str(col) + ","
+            board_str += "\n"
+        return board_str
+
 class Snake:
+    """Holds a list of all snake positions"""
+
     def __init__(self, INIT_SNAKE_POSITIONS):
         self.snake_body = INIT_SNAKE_POSITIONS
 
@@ -57,53 +72,54 @@ class Snake:
         snake.snake_body.insert(0, destination)
         return tail
 
-    def set_snake_head():
-        pass
+    def __repr__(self):
+        return "Snake({})".format(self.snake_body)
 
 class Apple:
 
     def __init__(self):
         self.apple = [random.randint(0, BOARD_SIZE-1), random.randint(0, BOARD_SIZE-1)]
 
+    def __str__(self):
+        return "[Appl]"
+
 class Game:
+
     board = Board()
 
     def start(self):
 
+        i = 0
         while True:
             for body in bodies_to_be_added:
 
-                tail = snake.move([0,1])
+                tail = snake.move(MOVES[i])
                 game.board.set_snake(tail=tail)
                 game.board.draw_board()
-                time.sleep(1)
+                print(repr(snake))
+                print(str(game.board))
 
-                tail = snake.move([0,2])
-                game.board.set_snake(tail=tail)
-                game.board.draw_board()
                 time.sleep(1)
-
-                tail = snake.move([1,2])
-                game.board.set_snake(tail=tail)
-                game.board.draw_board()
-                time.sleep(1)
+                i += 1
 
             game.board.set_apple()
             time.sleep(1)
             break
 
 
-bodies_to_be_added = [[3,0]]
+bodies_to_be_added = [[3,0],[4,0],[5,0],[6,0]]
+MOVES = [[0,1],[0,2],[1,2],[2,2]]
 
 snake = Snake(INIT_SNAKE_POSITIONS)
 game = Game()
 apple = Apple()
 
 # os.system('clear')
-# import pdb; pdb.set_trace()
 game.board.set_snake()
 game.board.set_apple()
 game.board.draw_board()
+print(repr(snake))
+print(str(game.board))
 
 time.sleep(1)
 game.start()
