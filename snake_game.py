@@ -8,7 +8,7 @@ INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 
 
 class Board:
-    """Holds the board with the peices if any otherwise None"""
+    """Holds the board-list with the peices if any otherwise None"""
 
     board = [[None for y in range(BOARD_SIZE)] for x in range(BOARD_SIZE)]
 
@@ -69,8 +69,20 @@ class Snake:
     def move(self, destination):
         tail = snake.snake_body[-1]
         del snake.snake_body[-1]
-        snake.snake_body.insert(0, destination)
+        try:
+            snake.snake_body.insert(0, destination)
+        except Exception as e:
+            raise
         return tail
+
+    def wall_collision(self):
+        pass
+
+    def apple_collision(self):
+        pass
+
+    def self_collision(self):
+        pass
 
     def __repr__(self):
         return "Snake({})".format(self.snake_body)
@@ -84,20 +96,25 @@ class Apple:
         return "[Appl]"
 
 class Game:
+    """Holds the board"""
 
     board = Board()
 
     def start(self):
 
         i = 0
-        while True:
+        running = True
+        while running:
             for body in bodies_to_be_added:
 
                 tail = snake.move(MOVES[i])
                 game.board.set_snake(tail=tail)
+                game_states.append(game.board)
+
                 game.board.draw_board()
                 print(repr(snake))
                 print(str(game.board))
+                print(game.board)
 
                 time.sleep(1)
                 i += 1
@@ -109,6 +126,10 @@ class Game:
 
 bodies_to_be_added = [[3,0],[4,0],[5,0],[6,0]]
 MOVES = [[0,1],[0,2],[1,2],[2,2]]
+# MOVES = ['r','f','r','f']
+
+# holds snapshots of all previous game states
+game_states = []
 
 snake = Snake(INIT_SNAKE_POSITIONS)
 game = Game()
@@ -120,6 +141,7 @@ game.board.set_apple()
 game.board.draw_board()
 print(repr(snake))
 print(str(game.board))
+print(game.board)
 
 time.sleep(1)
 game.start()
