@@ -12,9 +12,13 @@ class Board:
 
     board = [[None for y in range(BOARD_SIZE)] for x in range(BOARD_SIZE)]
 
-    def update_board(self, tail=None):
-        for body in snake.snake_body:
+    def clear_board(self):
+        for cell in self.board:
+            cell = None
 
+    def update_board(self, tail=None):
+        self.clear_board()
+        for body in snake.snake_body:
             # add body segments to board
             body_x = body[0]
             body_y = body[1]
@@ -104,18 +108,27 @@ class Snake:
         pass
 
     def apple_collision(self):
-        pass
+        if snake.snake_body[0] == apple.apple:
+            print("apple_collision=True")
+            snake.snake_body.append([0,0])
+            return True
+        else:
+            return False
 
     def self_collision(self):
         pass
 
     def __repr__(self):
-        return "Snake({})".format(self.snake_body)
+        return "snake.snake_body: {}".format(self.snake_body)
 
 class Apple:
 
-    def __init__(self):
-        self.apple = [random.randint(0, BOARD_SIZE-1), random.randint(0, BOARD_SIZE-1)]
+    # x = random.randint(0, BOARD_SIZE-1)
+    # y = random.randint(0, BOARD_SIZE-1)
+    apple = [random.randint(0, BOARD_SIZE-1), random.randint(0, BOARD_SIZE-1)]
+
+    def __init__(self, apple=apple):
+        self.apple = [apple[0], apple[1]]
 
     def __str__(self):
         return "[Appl]"
@@ -123,17 +136,21 @@ class Apple:
 class Game:
     """Holds the board"""
 
-    game_over = False
     board = Board()
+
+    game_over = False
     loop_count = 0
-    current_move = ''
+    current_move = None
 
     def start(self):
         while not self.game_over and self.loop_count <= len(MOVES)-1:
-            tail = snake.move(MOVES[self.loop_count]) # TODO: don't return tail, and set it rather from method
+            self.current_move = MOVES[self.loop_count]
+            tail = snake.move(self.current_move) # TODO: don't return tail, and set it rather from method
+            snake.apple_collision()
 
             game.board.update_board(tail=tail)
             game_states.append(game.board)
+
 
             game.board.draw_board()
             print(repr(snake))
@@ -144,12 +161,11 @@ class Game:
             self.loop_count += 1
 
 
-MOVES = ['right','right','down']
+MOVES = ['right','right','right']
 game_states = []
-
 snake = Snake(INIT_SNAKE_POSITIONS)
 game = Game()
-apple = Apple()
+apple = Apple([0,3])
 
 # os.system('clear')
 game.board.update_board()
