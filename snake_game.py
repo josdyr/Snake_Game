@@ -16,7 +16,7 @@ class Board:
         for cell in self.board:
             cell = None
 
-    def update_board(self, tail=None):
+    def reset_board(self, tail=None):
         self.clear_board()
         for body in snake.snake_body:
             # add body segments to board
@@ -110,7 +110,7 @@ class Snake:
     def apple_collision(self):
         if snake.snake_body[0] == apple.apple:
             print("apple_collision=True")
-            snake.snake_body.append([0,0])
+            snake.snake_body.append([0,0]) # problem: generalise tail input?
             return True
         else:
             return False
@@ -119,12 +119,11 @@ class Snake:
         pass
 
     def __repr__(self):
-        return "snake.snake_body: {}".format(self.snake_body)
+        return "Snake({})".format(self.snake_body)
 
 class Apple:
+    """Initiates an apple with a random position, unless spesified"""
 
-    # x = random.randint(0, BOARD_SIZE-1)
-    # y = random.randint(0, BOARD_SIZE-1)
     apple = [random.randint(0, BOARD_SIZE-1), random.randint(0, BOARD_SIZE-1)]
 
     def __init__(self, apple=apple):
@@ -145,34 +144,32 @@ class Game:
     def start(self):
         while not self.game_over and self.loop_count <= len(MOVES)-1:
             self.current_move = MOVES[self.loop_count]
-            tail = snake.move(self.current_move) # TODO: don't return tail, and set it rather from method
-            snake.apple_collision()
+            # import pdb; pdb.set_trace()
+            tail = snake.move(self.current_move)
+            if snake.apple_collision():
+                tail = None
 
-            game.board.update_board(tail=tail)
+            game.board.reset_board(tail)
             game_states.append(game.board)
-
-
             game.board.draw_board()
+
             print(repr(snake))
             print(str(game.board))
-            print("len(game_states): {}".format(len(game_states)))
 
             time.sleep(1)
             self.loop_count += 1
 
-
-MOVES = ['right','right','right']
+MOVES = ['right','right','right','down']
 game_states = []
 snake = Snake(INIT_SNAKE_POSITIONS)
 game = Game()
-apple = Apple([0,3])
+apple = Apple([0,3]); game.board.set_apple()
 
 # os.system('clear')
-game.board.update_board()
-game.board.set_apple()
+game.board.reset_board()
 game.board.draw_board()
+
 print(repr(snake))
-print(str(game.board))
 print(game.board)
 
 time.sleep(1)
