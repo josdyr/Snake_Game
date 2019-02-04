@@ -13,9 +13,6 @@ class Board:
 
     board = [[None for y in range(BOARD_SIZE)] for x in range(BOARD_SIZE)]
 
-    def get_board():
-        return self.board
-
     def clear_board(self):
         for cell in self.board:
             cell = None
