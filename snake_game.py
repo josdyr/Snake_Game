@@ -3,17 +3,18 @@ import os
 import time
 
 
-GENERATIONS = 1000
 BOARD_SIZE = 10
 INIT_SNAKE_POSITIONS = [[0,0], [1,0], [2,0]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
-MOVES = ['right','right','right','down','down','left','down','down', 'down','left','left','left','left']
 
 
 class Board:
     """Holds the board-list with the peices if any otherwise None"""
 
     board = [[None for y in range(BOARD_SIZE)] for x in range(BOARD_SIZE)]
+
+    def get_board():
+        return self.board
 
     def clear_board(self):
         for cell in self.board:
@@ -32,6 +33,9 @@ class Board:
                 tail_x = tail[0]
                 tail_y = tail[1]
                 self.board[tail_x][tail_y] = None
+
+    def set_apple(self):
+        self.board[game.apple.apple[0]][game.apple.apple[1]] = game.apple
 
     def draw_board(self):
         # os.system('clear')
@@ -84,9 +88,10 @@ class Snake:
         return destination
 
     def valid_move(self, destination):
-        if 0 <= destination[0] and destination[1] <= 9:
+        if 0 <= destination[0] <= 9 and 0 <= destination[1] <= 9:
             return True
         else:
+            print("Collision!")
             return False
 
     def move(self, direction):
@@ -94,9 +99,8 @@ class Snake:
         tail = self.snake_body[-1]
         if self.apple_collision(destination, tail):
             tail = None
-            self.apple = Apple(unrandom_apples_list[game.apples_eaten])
-            self.apple.set_apple()
-            game.apples_eaten += 1
+            game.apple = Apple()
+            game.board.set_apple()
         del self.snake_body[-1]
         if not self.valid_move(destination):
             game.game_over = True
@@ -106,9 +110,6 @@ class Snake:
         else:
             self.snake_body.insert(0, destination)
         return tail
-
-    def wall_collision(self):
-        pass
 
     def apple_collision(self, destination, tail):
         if destination == game.apple.apple:
@@ -127,66 +128,39 @@ class Snake:
 class Apple:
     """Initiates an apple with a random position, unless spesified"""
 
-    apple = [random.randint(0, BOARD_SIZE-1), random.randint(0, BOARD_SIZE-1)]
-
-    def __init__(self, apple=apple):
-        self.apple = [apple[0], apple[1]]
-
-    def set_apple(self):
-        x = self.apple[0]
-        y = self.apple[1]
-        game.board.board[x][y] = game.apple
+    def __init__(self, apple=None):
+        if apple is None:
+            self.apple = [random.randint(0, BOARD_SIZE-1), random.randint(0, BOARD_SIZE-1)]
+        else:
+            self.apple = apple
 
     def __str__(self):
         return "[Appl]"
 
 class Game:
-    """Holds all game states from current game"""
-
-    board = Board()
-    apple = None
+    """Holds all game states from current game. Holds Board, Snake and Apple"""
 
     apple_count = 0
     score = 0
     game_over = False
-    loop_count = 0
     apples_eaten = 0
-    current_move = None
     game_states = []
+    tail = None
 
     def __init__(self):
+        self.board = Board()
         self.snake = Snake(INIT_SNAKE_POSITIONS)
+        self.apple = Apple()
 
-    def run_game(self):
-
-        self.apple = Apple([0,3])
-        self.apple.set_apple()
-
-        while not self.game_over and self.loop_count <= len(MOVES)-1:
-            self.current_move = MOVES[self.loop_count]
-            tail = self.snake.move(self.current_move)
-            self.board.reset_board(tail)
-            self.game_states.append(self.board)
-            self.board.draw_board()
-            print(repr(self.snake))
-            print(str(self.board))
-            time.sleep(1)
-            self.loop_count += 1
+    def update(self, direction): # Update Game State
+        # import pdb; pdb.set_trace()
+        self.board.set_apple()
+        self.tail = self.snake.move(direction)
+        if self.game_over == True:
+            exit()
+        self.board.reset_board(self.tail)
+        self.game_states.append(self.board)
+        self.board.draw_board()
 
 
-if __name__ == "__main__":
-
-    perception_forward = ['apple']
-    perception_left = ['wall']
-    perception_right = ['self']
-
-    unrandom_apples_list = [[2,2],[4,2],[4,2]]
-    all_games = []
-    game_count = 0
-
-    while game_count <= GENERATIONS:
-
-        game = Game()
-        game.run_game()
-        all_games.append(game)
-        game_count += 1
+game = Game()
