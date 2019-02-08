@@ -1,11 +1,13 @@
 import random
 import os
 import time
+from tqdm import tqdm
 
 
 BOARD_SIZE = 10
 INIT_SNAKE_POSITIONS = [[0,0], [1,0], [2,0]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
+GENERATIONS = 10
 
 
 class Board:
@@ -35,7 +37,6 @@ class Board:
         self.board[game.apple.apple[0]][game.apple.apple[1]] = game.apple
 
     def draw_board(self):
-        # os.system('clear')
         for x, row in enumerate(self.board):
             for y, col in enumerate(row):
                 if self.board[x][y] == game.snake.snake_body[0]:
@@ -70,12 +71,6 @@ class Snake:
     def __init__(self, INIT_SNAKE_POSITIONS):
         self.snake_body = INIT_SNAKE_POSITIONS
 
-    def reset_snake(self):
-        self.snake_body = INIT_SNAKE_POSITIONS
-
-    def add_body(self, body):
-        self.snake_body.append(body)
-
     def calc_destination(self, direction):
         """add diff_xy to snake_head"""
         diff_xy = self.MAP[direction]; print("diff_xy: {}".format(diff_xy))
@@ -91,6 +86,12 @@ class Snake:
             print("Collision!")
             return False
 
+    def self_collision(self, destination):
+        if destination in self.snake_body:
+            return True
+        else:
+            return False
+
     def move(self, direction):
         destination = self.calc_destination(direction)
         tail = self.snake_body[-1]
@@ -104,6 +105,10 @@ class Snake:
             tail = None
             print("game_over={}".format(game.game_over))
             print("APP: OutOfBoundsError: destination={} is outside the board.".format(destination))
+        if self.self_collision(destination):
+            game.game_over = True
+            print("game_over={}".format(game.game_over))
+            print("APP: SelfCollision: destination={} is part of the snake_body.".format(destination))
         else:
             self.snake_body.insert(0, destination)
         return tail
@@ -115,9 +120,6 @@ class Snake:
             return True
         else:
             return False
-
-    def self_collision(self):
-        pass
 
     def __repr__(self):
         return "Snake({})".format(self.snake_body)
@@ -150,7 +152,6 @@ class Game:
         self.apple = Apple()
 
     def update(self, direction): # Update Game State
-        # import pdb; pdb.set_trace()
         self.board.set_apple()
         self.tail = self.snake.move(direction)
         if self.game_over == True:
