@@ -1,11 +1,8 @@
 import random
-import os
-import time
-from tqdm import tqdm
 
 
 BOARD_SIZE = 10
-INIT_SNAKE_POSITIONS = [[0,0], [1,0], [2,0]]
+INIT_SNAKE_POSITIONS = [[0, 0], [1, 0], [2, 0]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 GENERATIONS = 10
 
@@ -58,14 +55,15 @@ class Board:
             board_str += "\n"
         return board_str
 
+
 class Snake:
     """Holds a list of all snake positions"""
 
     MAP = {
-        'up': [-1,0],
-        'down': [1,0],
-        'right': [0,1],
-        'left': [0,-1],
+        'up': [-1, 0],
+        'down': [1, 0],
+        'right': [0, 1],
+        'left': [0, -1],
     }
 
     def __init__(self, INIT_SNAKE_POSITIONS):
@@ -73,8 +71,10 @@ class Snake:
 
     def calc_destination(self, direction):
         """add diff_xy to snake_head"""
-        diff_xy = self.MAP[direction]; print("diff_xy: {}".format(diff_xy))
-        snake_head = self.snake_body[0]; print("snake_head: {}".format(snake_head))
+        diff_xy = self.MAP[direction]
+        print("diff_xy: {}".format(diff_xy))
+        snake_head = self.snake_body[0]
+        print("snake_head: {}".format(snake_head))
         destination = [a_i + b_i for a_i, b_i in zip(diff_xy, snake_head)]
         print("destination: {}".format(destination))
         return destination
@@ -104,11 +104,15 @@ class Snake:
             game.game_over = True
             tail = None
             print("game_over={}".format(game.game_over))
-            print("APP: OutOfBoundsError: destination={} is outside the board.".format(destination))
+            print(
+                "APP: OutOfBoundsError: destination={} is outside the board."
+                .format(destination))
         if self.self_collision(destination):
             game.game_over = True
             print("game_over={}".format(game.game_over))
-            print("APP: SelfCollision: destination={} is part of the snake_body.".format(destination))
+            print(
+                "APP: SelfCollision: destination={} is part of the snake_body."
+                .format(destination))
         else:
             self.snake_body.insert(0, destination)
         return tail
@@ -116,7 +120,7 @@ class Snake:
     def apple_collision(self, destination, tail):
         if destination == game.apple.apple:
             print("apple_collision=True")
-            self.snake_body.append(tail) # problem: generalise tail input?
+            self.snake_body.append(tail)  # problem: generalise tail input?
             return True
         else:
             return False
@@ -124,17 +128,21 @@ class Snake:
     def __repr__(self):
         return "Snake({})".format(self.snake_body)
 
+
 class Apple:
     """Initiates an apple with a random position, unless spesified"""
 
     def __init__(self, apple=None):
         if apple is None:
-            self.apple = [random.randint(0, BOARD_SIZE-1), random.randint(0, BOARD_SIZE-1)]
+            self.apple = [
+                random.randint(0, BOARD_SIZE-1),
+                random.randint(0, BOARD_SIZE-1)]
         else:
             self.apple = apple
 
     def __str__(self):
         return "[Appl]"
+
 
 class Game:
     """Holds all game states from current game. Holds Board, Snake and Apple"""
@@ -151,10 +159,11 @@ class Game:
         self.snake = Snake(INIT_SNAKE_POSITIONS)
         self.apple = Apple()
 
-    def update(self, direction): # Update Game State
+    def update(self, direction):  # Update Game State
+        """Takes a direction and executes move"""
         self.board.set_apple()
         self.tail = self.snake.move(direction)
-        if self.game_over == True:
+        if self.game_over:
             exit()
         self.board.reset_board(self.tail)
         self.game_states.append(self.board)
