@@ -166,10 +166,12 @@ class Game:
         self.board.set_apple()
         self.tail = self.snake.move(direction)
         if self.game_over:
-            exit()
+            # exit()
+            done = True
         self.board.reset_board(self.tail)
         self.game_states.append(self.board)
         # self.board.draw_board() # I want to rather draw the board after training???
+        return next_state, reward, done
 
 
 class Agent():
@@ -185,6 +187,8 @@ class Agent():
 
 class QAgent(Agent):
 
+    actions = ['up', 'right', 'down', 'left']
+
     def __init__(self, discount_rate=0.97, learning_rate=0.01):
         super().__init__()
         self.eps = 1.0
@@ -199,7 +203,7 @@ class QAgent(Agent):
         q_state = self.q_table[state]
         action_greedy = np.argmax(q_state)
         action_random = super().get_action(state)
-        return action_random if random.random() < self.eps else action_greedy
+        return self.actions[action_random] if random.random() < self.eps else self.actions[action_greedy]
 
 
 game = Game()
