@@ -1,4 +1,6 @@
 import random
+import numpy as np
+from IPython.display import clear_output
 
 
 BOARD_SIZE = 4
@@ -167,7 +169,56 @@ class Game:
             exit()
         self.board.reset_board(self.tail)
         self.game_states.append(self.board)
-        self.board.draw_board()
+        # self.board.draw_board() # I want to rather draw the board after training???
+
+
+class Agent():
+    def __init__(self):
+        self.action_size = 4
+        self.state_size = BOARD_SIZE ** 2
+
+    def get_action(self, state):
+        action = random.choice(range(self.action_size))
+
+        return action
+
+
+class QAgent(Agent):
+
+    def __init__(self, discount_rate=0.97, learning_rate=0.01):
+        super().__init__()
+        self.eps = 1.0
+        self.discount_rate = discount_rate
+        self.learning_rate = learning_rate
+        self.build_model()
+
+    def build_model(self):
+        self.q_table = 1e-4*np.random.random([self.state_size, self.action_size])
+
+    def get_action(self, state):
+        q_state = self.q_table[state]
+        action_greedy = np.argmax(q_state)
+        action_random = super().get_action(state)
+        return action_random if random.random() < self.eps else action_greedy
 
 
 game = Game()
+agent = QAgent()
+
+total_reward = 0
+for ep in range(100):
+    # state = env.reset()
+    done = False
+    steps = 0
+    while not done:
+        import ipdb
+        ipdb.set_trace()
+        state = game.snake.snake_body[0]
+        action = agent.get_action(state)
+        next_state, reward, done = game.update(action)
+        agent.train((state, action, next_state, reward, done))
+        state = next_state
+        total_reward += reward
+        game.board.draw_board()
+        clear_output()
+        steps += 1
