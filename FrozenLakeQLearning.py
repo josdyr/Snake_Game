@@ -49,7 +49,6 @@ class Agent():
             action = np.random.uniform(self.action_low,
                                        self.action_high,
                                        self.action_shape)
-
         return action
 
 
@@ -69,8 +68,6 @@ class QAgent(Agent):
             1e-4*np.random.random([self.state_size, self.action_size])
 
     def get_action(self, state):
-        import ipdb
-        ipdb.set_trace()
         q_state = self.q_table[state]
         action_greedy = np.argmax(q_state)
         action_random = super().get_action(state)
@@ -101,6 +98,8 @@ for ep in range(10000):
     done = False
     steps = 0
     while not done:
+        import ipdb
+        ipdb.set_trace()
         action = agent.get_action(state)
         next_state, reward, done, info = env.step(action)
         agent.train((state, action, next_state, reward, done))
