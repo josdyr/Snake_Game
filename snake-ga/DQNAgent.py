@@ -96,6 +96,7 @@ class DQNAgent(object):
             minibatch = random.sample(memory, 1000)
         else:
             minibatch = memory
+
         for state, action, reward, next_state, done in minibatch:
             target = reward
             if not done:

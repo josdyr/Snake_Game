@@ -19,19 +19,19 @@ class DQNAgent():
         self.agent_predict = 0
         self.learning_rate = 0.0005
         self.model = self.network()
-        self.model = self.network("weights.hdf5")
+        # self.model = self.network("weights.hdf5")
         self.epsilon = 0
         self.actual = []
         self.memory = []
 
     def neural_network(self, weights=None):
-        model = Sequential()
-        model.add(Dense(output_dim=120, activation='relu', input_dim=11))
-        model.add(Dropout(0.15))
-        model.add(Dense(output_dim=120, activation='relu'))
-        model.add(Dropout(0.15))
-        model.add(Dense(output_dim=120, activation='relu'))
-        model.add(Dropout(0.15))
-        model.add(Dense(output_dim=3, activation='softmax'))
-        opt = Adam(self.learning_rate)
-        model.compile(loss='mse', optimizer=opt)
+        self.model = Sequential()
+        self.model.add(Dense(output_dim=120, activation='relu', input_dim=9))
+        self.model.add(Dropout(0.15))
+        self.model.add(Dense(output_dim=120, activation='relu'))
+        self.model.add(Dropout(0.15))
+        self.model.add(Dense(output_dim=120, activation='relu'))
+        self.model.add(Dropout(0.15))
+        self.model.add(Dense(output_dim=3, activation='softmax'))
+        self.opt = Adam(self.learning_rate)
+        self.model.compile(loss='mse', optimizer=opt)
