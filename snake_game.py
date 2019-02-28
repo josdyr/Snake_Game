@@ -56,7 +56,7 @@ class Board:
         return board_str
 
 
-class Snake:
+class SnakeAgent:
     """Holds a list of all snake positions"""
 
     MAP = {
@@ -156,8 +156,16 @@ class Game:
 
     def __init__(self):
         self.board = Board()
-        self.snake = Snake(INIT_SNAKE_POSITIONS)
+        self.snake = SnakeAgent(INIT_SNAKE_POSITIONS)
         self.apple = Apple()
+
+    def initial_update(self):
+        pass
+
+    def get_state(self):
+        """returns the state of the game. Will return a list of booleans. The list will then be the input of the neural network"""
+        pass
+        return state
 
     def update(self, direction):  # Update Game State
         """Takes a direction and executes move"""
@@ -170,4 +178,17 @@ class Game:
         self.board.draw_board()
 
 
-game = Game()
+while True: # simulation-loop (continue training until user stops simulation)
+    game = Game() # make a game for each simulation-iteration
+
+    # initial update (the very first update/game-step)
+    game.initial_update()
+
+    # the rest of the updates/game-steps
+    while not game.game_over:
+        # get state (which will be the input to the neural network)
+        game.get_state()
+
+
+
+    games.append(game) # append game to the list of games

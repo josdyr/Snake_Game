@@ -8,8 +8,8 @@ import seaborn as sns
 import numpy as np
 
 # Set options to activate or deactivate the game view, and its speed
-display_option = False
-speed = 0
+display_option = True
+speed = 50
 pygame.font.init()
 
 
@@ -50,7 +50,7 @@ class Player(object):
             self.position[-1][0] = x
             self.position[-1][1] = y
 
-    def do_move(self, move, x, y, game, food,agent):
+    def do_move(self, move, x, y, game, food, agent):
         move_array = [self.x_change, self.y_change]
 
         if self.eaten:
@@ -101,9 +101,9 @@ class Food(object):
 
     def food_coord(self, game, player):
         x_rand = randint(20, game.game_width - 40)
-        self.x_food = x_rand - x_rand % 20
+        self.x_food = x_rand - x_rand % 20 # snap to grid
         y_rand = randint(20, game.game_height - 40)
-        self.y_food = y_rand - y_rand % 20
+        self.y_food = y_rand - y_rand % 20 # snap to grid
         if [self.x_food, self.y_food] not in player.position:
             return self.x_food, self.y_food
         else:
@@ -155,7 +155,7 @@ def update_screen():
 
 def initialize_game(player, game, food, agent):
     state_init1 = agent.get_state(game, player, food)  # [0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 0]
-    action = [1, 0, 0]
+    action = [1, 0, 0] # move straight?
     player.do_move(action, player.x, player.y, game, food, agent)
     state_init2 = agent.get_state(game, player, food)
     reward1 = agent.set_reward(player, game.crash)
@@ -190,10 +190,10 @@ def run():
         while not game.crash:
             #agent.epsilon is set to give randomness to actions
             agent.epsilon = 80 - counter_games
-            
+
             #get old state
             state_old = agent.get_state(game, player1, food1)
-            
+
             #perform random actions based on agent.epsilon, or choose the action
             if randint(0, 200) < agent.epsilon:
                 final_move = to_categorical(randint(0, 2), num_classes=3)
@@ -201,24 +201,24 @@ def run():
                 # predict action based on the old state
                 prediction = agent.model.predict(state_old.reshape((1,11)))
                 final_move = to_categorical(np.argmax(prediction[0]), num_classes=3)
-                
+
             #perform new move and get new state
             player1.do_move(final_move, player1.x, player1.y, game, food1, agent)
             state_new = agent.get_state(game, player1, food1)
-            
+
             #set treward for the new state
             reward = agent.set_reward(player1, game.crash)
-            
+
             #train short memory base on the new action and state
             agent.train_short_memory(state_old, final_move, reward, state_new, game.crash)
-            
+
             # store the new data into a long term memory
             agent.remember(state_old, final_move, reward, state_new, game.crash)
             record = get_record(game.score, record)
             if display_option:
                 display(player1, food1, game, record)
                 pygame.time.wait(speed)
-        
+
         agent.replay_new(agent.memory)
         counter_games += 1
         print('Game', counter_games, '      Score:', game.score)
@@ -228,4 +228,5 @@ def run():
     plot_seaborn(counter_plot, score_plot)
 
 
+import ipdb; ipdb.set_trace()
 run()
