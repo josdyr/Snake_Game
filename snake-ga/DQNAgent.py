@@ -54,7 +54,7 @@ class DQNAgent(object):
             (food.y_food > player.y)  # food down
             ]
 
-        # Change from [Bool, Bool, etc] to [1, 0, etc]
+        # Change from [True, False, etc] to [1, 0, etc]
         for i in range(len(state)):
             if state[i]:
                 state[i]=1

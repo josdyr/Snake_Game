@@ -1,4 +1,5 @@
 import random
+import numpy as np
 
 
 BOARD_SIZE = 4
@@ -235,9 +236,11 @@ class Game:
         pass
 
     def get_state(self):
-        """returns the state of the game. Will return a list of booleans. The list will then be the input of the neural network"""
+        """returns the state of the game. Will return a list of onehot encoded booleans (1/0). The list will then be the input of the neural network"""
         pass
-        return state
+        # state = [d_front, d_right, d_left, f_front, f_right, f_left, m_front, m_right, m_left]
+
+        # return np.asarray(state)
 
     def update(self, direction):  # Update Game State
         """Takes a direction and executes move"""
@@ -255,21 +258,24 @@ def get_record(score, record):
             return record
 
 
-while True: # simulation-loop (continue training until user stops simulation)
-    game = Game() # make a game for each simulation-iteration
+import ipdb; ipdb.set_trace()
 
-    # initial update (the very first update/game-step)
+while True: # simulation-loop (continue training until user stops simulation)
+
+    # make a game for each simulation-iteration
+    game = Game()
+
+    # initial update (the very first update/game-step/action/game-iteration)
     game.initial_update()
 
-    # the rest of the updates/game-steps
+    # the rest of the updates/game-steps/actions/game-iterations
     while not game.game_over:
 
         # get state (which will be the input to the neural network)
         prev_state = game.get_state()
 
-        # get action and preform the move (predict action and update game state)
-        current_action = get_action()
-        game.update(current_action)
+        # preform move of get_action() (predict action and update game state)
+        game.update(get_action())
 
         # get the new game-state (now that the move is acted upon the environment)
         current_new_state = game.get_state()
