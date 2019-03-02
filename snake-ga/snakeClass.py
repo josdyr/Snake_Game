@@ -5,7 +5,6 @@ import numpy as np
 from keras.utils import to_categorical
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
 
 # Set options to activate or deactivate the game view, and its speed
 display_option = True

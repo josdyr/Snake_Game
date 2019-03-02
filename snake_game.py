@@ -1,5 +1,12 @@
 import random
+from random import randint
 import numpy as np
+import pandas as pd
+from operator import add
+from keras.models import Sequential
+from keras.layers.core import Dense, Dropout
+from keras.optimizers import Adam
+from keras.utils import to_categorical
 
 
 BOARD_SIZE = 4
@@ -80,8 +87,8 @@ class SnakeAgent:
         self.agent_target = 1
         self.agent_predict = 0
         self.learning_rate = 0.0005
-        self.model = self.network()
-        self.model = self.network("my_weights.hdf5")
+        self.model = self.neural_network()
+        # self.model = self.neural_network("my_weights.hdf5")
         self.epsilon = 80
         self.actual = []
         self.memory = []
@@ -96,7 +103,7 @@ class SnakeAgent:
         self.model.add(Dropout(0.15))
         self.model.add(Dense(output_dim=3, activation='softmax'))
         self.opt = Adam(self.learning_rate)
-        self.model.compile(loss='mse', optimizer=opt)
+        self.model.compile(loss='mse', optimizer=self.opt)
 
     def calc_destination(self, direction):
         """add diff_xy to snake_head"""
@@ -156,11 +163,15 @@ class SnakeAgent:
             return False
 
     def get_action(self):
+        """returns a random action (forward, right, left)"""
         if random.randint(0, 100) < self.epsilon:
-            current_action = to_categorical(randint(0, 2), num_classes=3)
+            current_action = MAP_ONEHOT[randint(0, 2)]
+            # current_action = to_categorical(randint(0, 2), num_classes=3)
         else:
+            import ipdb; ipdb.set_trace()
             prediction = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
-            current_action = to_categorical(np.argmax(prediction[0]), num_classes=3)
+            # current_action = to_categorical(np.argmax(prediction[0]), num_classes=3)
+            current_action = MAP_ONEHOT[randint(0, 2)]
         self.epsilon -= 1
         return current_action
 
@@ -258,7 +269,7 @@ def get_record(score, record):
             return record
 
 
-import ipdb; ipdb.set_trace()
+# import ipdb; ipdb.set_trace()
 
 while True: # simulation-loop (continue training until user stops simulation)
 
@@ -275,7 +286,7 @@ while True: # simulation-loop (continue training until user stops simulation)
         prev_state = game.get_state()
 
         # preform move of get_action() (predict action and update game state)
-        game.update(get_action())
+        game.update(game.snake.get_action())
 
         # get the new game-state (now that the move is acted upon the environment)
         current_new_state = game.get_state()
