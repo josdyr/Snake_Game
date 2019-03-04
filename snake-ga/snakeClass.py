@@ -201,9 +201,9 @@ def run():
                 # predict action based on the old state
                 prediction = agent.model.predict(state_old.reshape((1,11)))
                 final_move = to_categorical(np.argmax(prediction[0]), num_classes=3) # calculated move
-
             #perform new move and get new state
             player1.do_move(final_move, player1.x, player1.y, game, food1, agent)
+
             state_new = agent.get_state(game, player1, food1)
 
             #set reward for the new state
@@ -220,7 +220,6 @@ def run():
                 display(player1, food1, game, record)
                 pygame.time.wait(speed)
 
-        import ipdb; ipdb.set_trace()
 
         agent.replay_new(agent.memory)
         counter_games += 1
@@ -231,5 +230,4 @@ def run():
     plot_seaborn(counter_plot, score_plot)
 
 
-import ipdb; ipdb.set_trace()
 run()
