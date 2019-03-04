@@ -108,6 +108,7 @@ class DQNAgent(object):
 
     def train_short_memory(self, state, action, reward, next_state, done):
         target = reward
+        import ipdb; ipdb.set_trace()
         if not done:
             target = reward + self.gamma * np.amax(self.model.predict(next_state.reshape((1, 11)))[0])
         target_f = self.model.predict(state.reshape((1, 11)))

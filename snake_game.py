@@ -13,8 +13,10 @@ BOARD_SIZE = 4
 INIT_SNAKE_POSITIONS = [[0, 0], [1, 0], [2, 0]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 INIT_DIRECTION = 'right'
+PREV_DIRECTION = 'up'
+
 GENERATIONS = 10
-NUM_OF_INPUTS = 9
+NUM_OF_INPUTS = 6
 MODEL_NAME = 'my_weights.hdf5'
 ACTIONS = ['up', 'down', 'right', 'left']
 
@@ -28,8 +30,7 @@ class Board:
         for cell in self.board:
             cell = None
 
-    def reset_board(self, tail=None):
-        self.clear_board()
+    def set_snake(self, tail=None):
         for body in game.snake.snake_body:
             # add body segments to board
             body_x = body[0]
@@ -127,13 +128,13 @@ class SnakeAgent:
         if 0 <= destination[0] <= BOARD_SIZE-1 and 0 <= destination[1] <= BOARD_SIZE-1:
             return True
         else:
-            # print("Collision!")
+            # print("valid_move: Collision!")
             return False
 
     def self_collision(self, destination):
         if destination in self.snake_body:
-            if destination == self.snake_body[1]:
-                print("NN MUST FIND ANOTHER ACTION/MOVE!!! MOVE NOT ALLOWED")
+            # if destination == self.snake_body[1]:
+            #     print("NN MUST FIND ANOTHER ACTION/MOVE!!! MOVE NOT ALLOWED")
             return True
         else:
             return False
@@ -197,13 +198,13 @@ class SnakeAgent:
     def train_short_memory(self, prev_state, action, reward, current_state, game_over):
         target = reward
         if not game_over:
-            target = reward + self.gamma * np.amax(self.model.predict(next_state.reshape((1, NUM_OF_INPUTS)))[0])
-        target_f = self.model.predict(state.reshape((1, NUM_OF_INPUTS)))
+            target = reward + self.gamma * np.amax(self.model.predict(current_state.reshape((1, NUM_OF_INPUTS)))[0])
+        target_f = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
         target_f[0][np.argmax(action)] = target
-        self.model.fit(state.reshape((1, NUM_OF_INPUTS)), target_f, epochs=1, verbose=0)
+        self.model.fit(prev_state.reshape((1, NUM_OF_INPUTS)), target_f, epochs=1, verbose=0)
 
-    def remember(self, state, action, reward, next_state, done):
-        self.memory.append((state, action, reward, next_state, done))
+    def remember(self, state, action, reward, current_state, done):
+        self.memory.append((state, action, reward, current_state, done))
 
     def replay_new(self, memory):
         if len(memory) > 1000:
@@ -211,10 +212,10 @@ class SnakeAgent:
         else:
             minibatch = memory
 
-        for state, action, reward, next_state, done in minibatch:
+        for state, action, reward, current_state, done in minibatch:
             target = reward
             if not done:
-                target = reward + self.gamma * np.amax(self.model.predict(np.array([next_state]))[0])
+                target = reward + self.gamma * np.amax(self.model.predict(np.array([current_state]))[0])
             target_f = self.model.predict(np.array([state]))
             target_f[0][np.argmax(action)] = target
             self.model.fit(np.array([state]), target_f, epochs=1, verbose=0)
@@ -268,22 +269,13 @@ class Game:
     tail = None
 
     def __init__(self):
-        self.board = Board()
         self.snake = SnakeAgent(INIT_SNAKE_POSITIONS)
+        self.board = Board()
         self.apple = Apple()
         self.score = 0
+        self.record = 0
         self.game_steps = 0
-
-    def initial_update(self):
-        prev_state = np.array([0,0,0,0,0,0,0,1,0])
-        self.snake.current_direction = INIT_DIRECTION
-        self.update(INIT_DIRECTION)
-        current_state = game.get_state(game.snake.current_direction)
-        reward = game.snake.set_reward(game.game_over)
-        game.snake.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
-        game.snake.remember(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
-        record = get_record()
-        game.game_steps += 1
+        self.prev_direction = ''
 
     def rel_dir(self, direction):
         """absolute to relative direction mapping"""
@@ -322,34 +314,51 @@ class Game:
 
     def get_state(self, direction):
         """returns the state of the game. Will return a list of onehot encoded booleans (1 or 0). The list will then be the input of the neural network"""
-        # status: order matter! -> forward, right, left (relative)
-        import ipdb; ipdb.set_trace()
-
-        status = []
+        # state: order matter! -> forward, right, left (relative)
+        state = []
 
         # dangers
         neighbours = self.snake.get_close_sight(direction)
         for n in neighbours:
             if self.snake.valid_move(n) and not self.snake.self_collision(n):
-                status.append(False) # no danger
+                state.append(False) # no danger
             else:
-                status.append(True) # danger
+                state.append(True) # danger
 
         # food
         forward, right, left = self.rel_dir(direction)
-        status.append(self.any_food(forward))
-        status.append(self.any_food(right))
-        status.append(self.any_food(left))
+        state.append(self.any_food(forward))
+        state.append(self.any_food(right))
+        state.append(self.any_food(left))
 
-        return status
+        for i, s in enumerate(state):
+            if s:
+                state[i] = 1
+            else:
+                state[i] = 0
+
+        return np.asarray(state)
 
     def update(self, direction):  # Update Game State
         """Takes a direction and executes move"""
         self.board.set_apple()
         self.tail = self.snake.move(direction)
-        self.board.reset_board(self.tail)
+        self.board.clear_board()
+        self.board.set_snake(self.tail)
         self.game_states.append(self.board)
         self.board.draw_board()
+
+    def initial_update(self):
+        prev_state = self.get_state(PREV_DIRECTION)
+        self.snake.current_direction = INIT_DIRECTION
+        self.update(INIT_DIRECTION)
+        current_state = self.get_state(self.snake.current_direction)
+        reward = self.snake.set_reward(self.game_over)
+        self.snake.train_short_memory(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
+        self.snake.remember(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
+        self.record = get_record(self.score, self.record)
+        self.game_steps += 1
+        game.prev_direction = PREV_DIRECTION
 
 
 def get_record(score, record):
@@ -359,23 +368,29 @@ def get_record(score, record):
             return record
 
 
-# import ipdb; ipdb.set_trace()
 game_counter = 0
 while True: # simulation-loop (continue training until user stops simulation)
+    import ipdb; ipdb.set_trace()
+    games = []
     game = Game()
+    game.board.set_snake()
+    game.board.draw_board()
     game.initial_update()
     while not game.game_over: # game-loop
-        prev_state = game.get_state()
+        prev_state = game.get_state(game.prev_direction)
         game.snake.current_direction = game.snake.get_action(prev_state)
+        print(game.snake.current_direction)
+        import ipdb; ipdb.set_trace()
         game.update(game.snake.current_direction)
         current_state = game.get_state(game.snake.current_direction)
         reward = game.snake.set_reward(game.game_over)
         game.snake.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
         game.snake.remember(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
-        record = get_record()
+        game.record = get_record(game.score, game.record)
         game.game_steps += 1
+        game.prev_direction = game.snake.current_direction
 
-    game.snake.replay_new()
+    game.snake.replay_new(game.snake.memory)
     print('Game', game_counter, ', Score', game.score)
     games.append(game) # append game to the list of games
     print('Current game done: Saving game and launching a new one.')

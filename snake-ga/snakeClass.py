@@ -37,7 +37,7 @@ class Player(object):
         self.position.append([self.x, self.y])
         self.food = 1
         self.eaten = False
-        self.image = pygame.image.load('img/snakeBody.png')
+        self.image = pygame.image.load('img/snakebody.png')
         self.x_change = 20
         self.y_change = 0
 
@@ -51,9 +51,7 @@ class Player(object):
 
     def do_move(self, move, x, y, game, food, agent):
         move_array = [self.x_change, self.y_change]
-
         if self.eaten:
-
             self.position.append([self.x, self.y])
             self.eaten = False
             self.food = self.food + 1
