@@ -303,41 +303,43 @@ class Game:
         return forward, right, left
 
     def any_food(self, direction):
-        """return 1, if there is any food in given direction"""
+        """return True if there is any food in the given direction"""
+        snake_head = self.snake.snake_body[0]
+        check_for_food = []
         if direction == 'up':
-            for idx in enumerate(BOARD_SIZE):
-                game.board.board[game.snake.snake_body[0][0]-idx][game.snake.snake_body[0][1]]
+            for i in range(1, (BOARD_SIZE - (BOARD_SIZE - snake_head[0]) + 1)):
+                check_for_food.append(isinstance(self.board.board[snake_head[0]-i][snake_head[1]], Apple))
         elif direction == 'down':
-            for idx in enumerate(BOARD_SIZE):
-                game.board.board[game.snake.snake_body[0][0]+idx][game.snake.snake_body[0][1]]
+            for i in range(1, (BOARD_SIZE - (snake_head[0] + 1) + 1)):
+                check_for_food.append(isinstance(self.board.board[snake_head[0]+i][snake_head[1]], Apple))
         elif direction == 'right':
-            destination = self.snake.calc_destination(direction)
-            if self.snake.valid_move(destination):
-                my_list.append(destination)
-                destination[][]
+            for i in range(1, (BOARD_SIZE - (snake_head[1] + 1) + 1)):
+                check_for_food.append(isinstance(self.board.board[snake_head[0]][snake_head[1]+i], Apple))
         elif direction == 'left':
-            for idx in enumerate(BOARD_SIZE):
-                game.board.board[game.snake.snake_body[0][0]][game.snake.snake_body[0][1]-idx]
+            for i in range(1, (BOARD_SIZE - (BOARD_SIZE - snake_head[1]) + 1)):
+                check_for_food.append(isinstance(self.board.board[snake_head[0]][snake_head[1]-i], Apple))
+        return any(check_for_food)
 
     def get_state(self, direction):
         """returns the state of the game. Will return a list of onehot encoded booleans (1 or 0). The list will then be the input of the neural network"""
         # status: order matter! -> forward, right, left (relative)
         import ipdb; ipdb.set_trace()
+
         status = []
 
         # dangers
         neighbours = self.snake.get_close_sight(direction)
         for n in neighbours:
             if self.snake.valid_move(n) and not self.snake.self_collision(n):
-                status.append(0) # no danger
+                status.append(False) # no danger
             else:
-                status.append(1) # danger
+                status.append(True) # danger
 
         # food
-        forward, right, left = self.snake.rel_dir(direction)
-        status.append(any_food(forward))
-        status.append(any_food(right))
-        status.append(any_food(left))
+        forward, right, left = self.rel_dir(direction)
+        status.append(self.any_food(forward))
+        status.append(self.any_food(right))
+        status.append(self.any_food(left))
 
         return status
 
