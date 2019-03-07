@@ -46,11 +46,11 @@ class Board:
             body_y = body[1]
             self.board[body_x][body_y] = body
 
-            # remove tail segment from board
-            if tail is not None:
-                tail_x = tail[0]
-                tail_y = tail[1]
-                self.board[tail_x][tail_y] = None
+        # remove tail segment from board
+        if tail is not None:
+            tail_x = tail[0]
+            tail_y = tail[1]
+            self.board[tail_x][tail_y] = None
 
     def set_apple(self):
         self.board[game.apple.apple[0]][game.apple.apple[1]] = game.apple
@@ -157,6 +157,7 @@ class SnakeAgent:
             game.apple = Apple()
             game.board.set_apple()
             self.did_eat = True
+            game.score += 1
         del self.snake_body[-1]
         if not self.valid_move(destination):
             game.game_over = True
@@ -255,7 +256,7 @@ class SnakeAgent:
             self.possible_actions = ['left', 'up', 'down']
 
     def __repr__(self):
-        return "Snake({})".format(self.snake_body)
+        return "SnakeAgent({})".format(self.snake_body)
 
 
 class Apple:
@@ -283,11 +284,10 @@ class Game:
     tail = None
 
     def __init__(self):
-        self.snake = SnakeAgent(INIT_SNAKE_POSITIONS)
+        self.snake = SnakeAgent(INIT_SNAKE_POSITIONS[:])
         self.board = Board()
         self.apple = Apple()
         self.score = 0
-        self.record = 0
         self.game_steps = 0
         self.prev_direction = ''
 
@@ -312,18 +312,19 @@ class Game:
         """return True if there is any food in the given direction"""
         snake_head = self.snake.snake_body[0]
         check_for_food = []
-        if direction == 'up':
-            for i in range(1, (BOARD_SIZE - (BOARD_SIZE - snake_head[0]) + 1)):
-                check_for_food.append(isinstance(self.board.board[snake_head[0]-i][snake_head[1]], Apple))
-        elif direction == 'down':
-            for i in range(1, (BOARD_SIZE - (snake_head[0] + 1) + 1)):
-                check_for_food.append(isinstance(self.board.board[snake_head[0]+i][snake_head[1]], Apple))
-        elif direction == 'right':
-            for i in range(1, (BOARD_SIZE - (snake_head[1] + 1) + 1)):
-                check_for_food.append(isinstance(self.board.board[snake_head[0]][snake_head[1]+i], Apple))
-        elif direction == 'left':
-            for i in range(1, (BOARD_SIZE - (BOARD_SIZE - snake_head[1]) + 1)):
-                check_for_food.append(isinstance(self.board.board[snake_head[0]][snake_head[1]-i], Apple))
+        if not game.game_over:
+            if direction == 'up':
+                for i in range(1, (BOARD_SIZE - (BOARD_SIZE - snake_head[0]) + 1)):
+                    check_for_food.append(isinstance(self.board.board[snake_head[0]-i][snake_head[1]], Apple))
+            elif direction == 'down':
+                for i in range(1, (BOARD_SIZE - (snake_head[0] + 1) + 1)):
+                    check_for_food.append(isinstance(self.board.board[snake_head[0]+i][snake_head[1]], Apple))
+            elif direction == 'right':
+                for i in range(1, (BOARD_SIZE - (snake_head[1] + 1) + 1)):
+                    check_for_food.append(isinstance(self.board.board[snake_head[0]][snake_head[1]+i], Apple))
+            elif direction == 'left':
+                for i in range(1, (BOARD_SIZE - (BOARD_SIZE - snake_head[1]) + 1)):
+                    check_for_food.append(isinstance(self.board.board[snake_head[0]][snake_head[1]-i], Apple))
         return any(check_for_food)
 
     def get_state(self, direction):
@@ -361,7 +362,7 @@ class Game:
         try:
             self.board.set_snake(self.tail)
         except Exception as e:
-            print("game_over=", game.game_over)
+            print("game_over =", game.game_over)
         self.game_states.append(self.board)
         self.board.draw_board()
 
@@ -376,48 +377,57 @@ class Game:
         reward = self.snake.set_reward(self.game_over)
         self.snake.train_short_memory(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
         self.snake.remember(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
-        self.record = get_record(self.score, self.record)
+
+        # if game.score > high_score:
+        #     high_score = game.score
+
         self.game_steps += 1
         game.prev_direction = INIT_DIRECTION
         print('---')
 
 
-def get_record(score, record):
-        if score >= record:
+def get_high_score(score, high_score):
+        if score >= high_score:
             return score
         else:
-            return record
+            return high_score
 
 
-import ipdb; ipdb.set_trace()
-game_counter = 0
-games = []
-while True: # simulation-loop (continue training until user stops simulation)
-    game = Game()
-    game.board.set_snake()
-    game.board.draw_board()
-    game.initial_update()
-    while not game.game_over: # game-loop
-        print('---')
-        prev_state = game.get_state(game.prev_direction)
-        game.snake.set_possible_actions(game.prev_direction)
-        game.snake.current_direction = game.snake.get_action(prev_state, game.prev_direction)
-        print(game.snake.current_direction)
-        game.update(game.snake.current_direction)
-        current_state = game.get_state(game.snake.current_direction)
-        reward = game.snake.set_reward(game.game_over)
-        game.snake.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
-        game.snake.remember(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
-        game.record = get_record(game.score, game.record)
-        game.game_steps += 1
-        game.prev_direction = game.snake.current_direction
-        print('---')
+if __name__ == '__main__':
+    import ipdb; ipdb.set_trace()
+    game_counter = 0
+    games = []
+    high_score = 0
+    while True: # simulation-loop (continue training until user stops simulation)
+        print('====== Launching new game ======')
+        game = Game()
+        game.board.set_snake()
+        game.board.draw_board()
+        game.initial_update()
+        while not game.game_over: # game-loop
+            print('---')
+            prev_state = game.get_state(game.prev_direction)
+            game.snake.set_possible_actions(game.prev_direction)
+            game.snake.current_direction = game.snake.get_action(prev_state, game.prev_direction)
+            print(game.snake.current_direction)
+            game.update(game.snake.current_direction)
+            current_state = game.get_state(game.snake.current_direction)
+            reward = game.snake.set_reward(game.game_over)
+            game.snake.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
+            game.snake.remember(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
 
-    game.snake.replay_new(game.snake.memory)
-    print('Game', game_counter, ', Score', game.score, ' Steps: ', game.game_steps)
-    games.append(game) # append game to the list of games
-    print('Current game done: Saving game and launching a new one.')
-    game_counter += 1
+            if game.score > high_score:
+                high_score = game.score
 
-game.snake.model.save_weights('my_weights.hdf5') # # save model
-print('Simulation done: Saving Model as:', MODEL_NAME)
+            game.game_steps += 1
+            game.prev_direction = game.snake.current_direction
+            print('---')
+
+        game.snake.replay_new(game.snake.memory)
+        games.append(game) # append game to the list of games
+        game_counter += 1
+        print('Game', game_counter, ', Score', game.score, 'high_score', high_score, ' Steps: ', game.game_steps)
+        print('====== Current game done: Saving game and launching a new one. ======')
+
+    game.snake.model.save_weights('my_weights.hdf5') # # save model
+    print('Simulation done: Saving Model as:', MODEL_NAME)
