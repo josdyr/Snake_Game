@@ -9,7 +9,7 @@ from keras.optimizers import Adam
 from keras.utils import to_categorical
 
 
-BOARD_SIZE = 4
+BOARD_SIZE = 6
 INIT_SNAKE_POSITIONS = [[0, 0], [1, 0], [2, 0]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 INIT_DIRECTION = 'right'
@@ -18,13 +18,22 @@ PREV_DIRECTION = 'up'
 GENERATIONS = 10
 NUM_OF_INPUTS = 6
 MODEL_NAME = 'my_weights.hdf5'
-ACTIONS = ['up', 'down', 'right', 'left']
+# ACTIONS = ['up', 'down', 'right', 'left']
+OPPOSITE_DIRECTION = {
+    'up': 'down',
+    'down': 'up',
+    'right': 'left',
+    'left': 'right'
+}
 
 
 class Board:
     """Holds the board-list with the peices if any otherwise None"""
 
-    board = [[None for y in range(BOARD_SIZE)] for x in range(BOARD_SIZE)]
+    board = None
+
+    def __init__(self):
+        self.board = [[None for y in range(BOARD_SIZE)] for x in range(BOARD_SIZE)]
 
     def clear_board(self):
         for cell in self.board:
@@ -83,6 +92,7 @@ class SnakeAgent:
         self.snake_body = INIT_SNAKE_POSITIONS
         self.did_eat = False
         self.prev_direction = 'up'
+        self.possible_actions = ['up', 'right', 'left']
 
         self.current_reward = 0
         self.gamma = 0.9
@@ -169,23 +179,17 @@ class SnakeAgent:
         else:
             return False
 
-    def get_action(self, prev_state):
+    def get_action(self, prev_state, prev_direction):
         """returns a random action (forward, right, left)"""
         if random.randint(0, 100) < self.epsilon:
-            current_direction = ACTIONS[randint(0, 3)]
+            current_direction = self.possible_actions[randint(0, 2)]
             # current_direction = to_categorical(randint(0, 2), num_classes=3)
         else:
             prediction = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
             # current_direction = to_categorical(np.argmax(prediction[0]), num_classes=3)
-            current_direction = ACTIONS[np.argmax(prediction[0])] # find out what this does
+            current_direction = self.possible_actions[np.argmax(prediction[0])]
         self.epsilon -= 1
-
-        # check if snake is moving back onto itself (if so, then pick another action)
-        destination = self.calc_destination(current_direction)
-        if destination == self.snake_body[1]:
-            self.get_action(prev_state)
-        else:
-            return current_direction
+        return current_direction
 
     def set_reward(self, game_over):
         self.reward = 0
@@ -239,6 +243,16 @@ class SnakeAgent:
             neighbours.append(self.calc_destination('up')) # right
             neighbours.append(self.calc_destination('down')) # left
         return neighbours
+
+    def set_possible_actions(self, prev_direction):
+        if prev_direction == 'up':
+            self.possible_actions = ['up', 'right', 'left']
+        elif prev_direction == 'down':
+            self.possible_actions = ['down', 'left', 'right']
+        elif prev_direction == 'right':
+            self.possible_actions = ['right', 'down', 'up']
+        elif prev_direction == 'left':
+            self.possible_actions = ['left', 'up', 'down']
 
     def __repr__(self):
         return "Snake({})".format(self.snake_body)
@@ -344,13 +358,19 @@ class Game:
         self.board.set_apple()
         self.tail = self.snake.move(direction)
         self.board.clear_board()
-        self.board.set_snake(self.tail)
+        try:
+            self.board.set_snake(self.tail)
+        except Exception as e:
+            print("game_over=", game.game_over)
         self.game_states.append(self.board)
         self.board.draw_board()
 
     def initial_update(self):
+        print('---')
         prev_state = self.get_state(PREV_DIRECTION)
+        game.snake.set_possible_actions(game.prev_direction)
         self.snake.current_direction = INIT_DIRECTION
+        print(game.snake.current_direction)
         self.update(INIT_DIRECTION)
         current_state = self.get_state(self.snake.current_direction)
         reward = self.snake.set_reward(self.game_over)
@@ -358,7 +378,8 @@ class Game:
         self.snake.remember(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
         self.record = get_record(self.score, self.record)
         self.game_steps += 1
-        game.prev_direction = PREV_DIRECTION
+        game.prev_direction = INIT_DIRECTION
+        print('---')
 
 
 def get_record(score, record):
@@ -368,19 +389,20 @@ def get_record(score, record):
             return record
 
 
+import ipdb; ipdb.set_trace()
 game_counter = 0
+games = []
 while True: # simulation-loop (continue training until user stops simulation)
-    import ipdb; ipdb.set_trace()
-    games = []
     game = Game()
     game.board.set_snake()
     game.board.draw_board()
     game.initial_update()
     while not game.game_over: # game-loop
+        print('---')
         prev_state = game.get_state(game.prev_direction)
-        game.snake.current_direction = game.snake.get_action(prev_state)
+        game.snake.set_possible_actions(game.prev_direction)
+        game.snake.current_direction = game.snake.get_action(prev_state, game.prev_direction)
         print(game.snake.current_direction)
-        import ipdb; ipdb.set_trace()
         game.update(game.snake.current_direction)
         current_state = game.get_state(game.snake.current_direction)
         reward = game.snake.set_reward(game.game_over)
@@ -389,9 +411,10 @@ while True: # simulation-loop (continue training until user stops simulation)
         game.record = get_record(game.score, game.record)
         game.game_steps += 1
         game.prev_direction = game.snake.current_direction
+        print('---')
 
     game.snake.replay_new(game.snake.memory)
-    print('Game', game_counter, ', Score', game.score)
+    print('Game', game_counter, ', Score', game.score, ' Steps: ', game.game_steps)
     games.append(game) # append game to the list of games
     print('Current game done: Saving game and launching a new one.')
     game_counter += 1
