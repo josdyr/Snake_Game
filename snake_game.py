@@ -1,4 +1,5 @@
 import random
+import time
 from random import randint
 import numpy as np
 import pandas as pd
@@ -9,12 +10,13 @@ from keras.models import Sequential
 from keras.layers.core import Dense, Dropout
 from keras.optimizers import Adam
 from keras.utils import to_categorical
+import os
 
 
-BOARD_SIZE = 6
-INIT_SNAKE_POSITIONS = [[0, 0], [1, 0], [2, 0]]
+BOARD_SIZE = 5
+INIT_SNAKE_POSITIONS = [[2, 2]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
-INIT_DIRECTION = 'right'
+INIT_DIRECTION = 'up'
 PREV_DIRECTION = 'up'
 
 GENERATIONS = 10
@@ -369,11 +371,10 @@ class Game:
         self.board.draw_board()
 
     def initial_update(self):
-        print('---')
+        # print('---')
         prev_state = self.get_state(PREV_DIRECTION)
         game.snake.set_possible_actions(game.prev_direction)
         self.snake.current_direction = INIT_DIRECTION
-        print(game.snake.current_direction)
         self.update(INIT_DIRECTION)
         current_state = self.get_state(self.snake.current_direction)
         reward = self.snake.set_reward(self.game_over)
@@ -385,7 +386,10 @@ class Game:
 
         self.game_steps += 1
         game.prev_direction = INIT_DIRECTION
-        print('---')
+        # print('---')
+        print(game.snake.current_direction)
+        time.sleep(0.05)
+        os.system('clear')
 
 
 def get_high_score(score, high_score):
@@ -407,18 +411,22 @@ if __name__ == '__main__':
     score_plot = []
     counter_plot = []
     high_score = 0
+
     while game_counter < 150: # simulation-loop (continue training until user stops simulation)
-        print('====== Launching new game ======')
+        # print('====== Launching new game ======')
         game = Game()
         game.board.set_snake()
+        os.system('clear')
         game.board.draw_board()
+        time.sleep(0.05)
+        os.system('clear')
+
         game.initial_update()
         while not game.game_over: # game-loop
-            print('---')
+            # print('---')
             prev_state = game.get_state(game.prev_direction)
             game.snake.set_possible_actions(game.prev_direction)
             game.snake.current_direction = game.snake.get_action(prev_state, game.prev_direction)
-            print(game.snake.current_direction)
             game.update(game.snake.current_direction)
             current_state = game.get_state(game.snake.current_direction)
             reward = game.snake.set_reward(game.game_over)
@@ -430,7 +438,10 @@ if __name__ == '__main__':
 
             game.game_steps += 1
             game.prev_direction = game.snake.current_direction
-            print('---')
+            # print('---')
+            print(game.snake.current_direction)
+            time.sleep(0.05)
+            os.system('clear')
 
         game.snake.replay_new(game.snake.memory)
         games.append(game) # append game to the list of games
@@ -439,6 +450,8 @@ if __name__ == '__main__':
         counter_plot.append(game_counter)
         print('Game', game_counter, ', Score', game.score, 'high_score', high_score, ' Steps: ', game.game_steps)
         print('====== Current game done: Saving game and launching a new one. ======')
+        time.sleep(0.8)
+        os.system('clear')
 
     game.snake.model.save_weights('my_weights.hdf5') # # save model
     plot_seaborn(counter_plot, score_plot)
