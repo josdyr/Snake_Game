@@ -3,6 +3,8 @@ from random import randint
 import numpy as np
 import pandas as pd
 from operator import add
+import matplotlib.pyplot as plt
+import seaborn as sns
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout
 from keras.optimizers import Adam
@@ -103,7 +105,7 @@ class SnakeAgent:
         self.learning_rate = 0.0005
         self.model = self.neural_network()
         # self.model = self.neural_network("my_weights.hdf5")
-        self.epsilon = 80
+        self.epsilon = 0
         self.actual = []
         self.memory = []
 
@@ -182,14 +184,14 @@ class SnakeAgent:
 
     def get_action(self, prev_state, prev_direction):
         """returns a random action (forward, right, left)"""
-        if random.randint(0, 100) < self.epsilon:
+        if random.randint(0, 200) < self.epsilon:
             current_direction = self.possible_actions[randint(0, 2)]
-            # current_direction = to_categorical(randint(0, 2), num_classes=3)
+            # current_direction = to_categorical(randint(0, 2), num_classes=3) # I don't want to use this as I don't need to include the action
         else:
             prediction = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
-            # current_direction = to_categorical(np.argmax(prediction[0]), num_classes=3)
-            current_direction = self.possible_actions[np.argmax(prediction[0])]
-        self.epsilon -= 1
+            # current_direction = to_categorical(np.argmax(prediction[0]), num_classes=3) # I don't want to use this as I don't need to include the action
+            current_direction = self.possible_actions[np.argmax(prediction[0])] # will this work?
+        self.epsilon = 80 - game_counter
         return current_direction
 
     def set_reward(self, game_over):
@@ -376,7 +378,7 @@ class Game:
         current_state = self.get_state(self.snake.current_direction)
         reward = self.snake.set_reward(self.game_over)
         self.snake.train_short_memory(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
-        self.snake.remember(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
+        game.snake.memory.append((prev_state, self.snake.current_direction, reward, current_state, self.game_over))
 
         # if game.score > high_score:
         #     high_score = game.score
@@ -392,13 +394,20 @@ def get_high_score(score, high_score):
         else:
             return high_score
 
+def plot_seaborn(array_counter, array_score):
+    sns.set(color_codes=True)
+    ax = sns.regplot(np.array([array_counter])[0], np.array([array_score])[0], color="b", x_jitter=.1, line_kws={'color':'green'})
+    ax.set(xlabel='games', ylabel='score')
+    plt.show()
+
 
 if __name__ == '__main__':
-    import ipdb; ipdb.set_trace()
     game_counter = 0
     games = []
+    score_plot = []
+    counter_plot = []
     high_score = 0
-    while True: # simulation-loop (continue training until user stops simulation)
+    while game_counter < 150: # simulation-loop (continue training until user stops simulation)
         print('====== Launching new game ======')
         game = Game()
         game.board.set_snake()
@@ -414,7 +423,7 @@ if __name__ == '__main__':
             current_state = game.get_state(game.snake.current_direction)
             reward = game.snake.set_reward(game.game_over)
             game.snake.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
-            game.snake.remember(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
+            game.snake.memory.append((prev_state, game.snake.current_direction, reward, current_state, game.game_over))
 
             if game.score > high_score:
                 high_score = game.score
@@ -426,8 +435,11 @@ if __name__ == '__main__':
         game.snake.replay_new(game.snake.memory)
         games.append(game) # append game to the list of games
         game_counter += 1
+        score_plot.append(game.score)
+        counter_plot.append(game_counter)
         print('Game', game_counter, ', Score', game.score, 'high_score', high_score, ' Steps: ', game.game_steps)
         print('====== Current game done: Saving game and launching a new one. ======')
 
     game.snake.model.save_weights('my_weights.hdf5') # # save model
+    plot_seaborn(counter_plot, score_plot)
     print('Simulation done: Saving Model as:', MODEL_NAME)
