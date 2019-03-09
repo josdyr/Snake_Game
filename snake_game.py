@@ -82,25 +82,12 @@ class Board:
         return board_str
 
 
-class SnakeAgent:
-    """Holds a list of all snake positions"""
+class Agent:
 
-    MAP = {
-        'up': [-1, 0],
-        'down': [1, 0],
-        'right': [0, 1],
-        'left': [0, -1],
-    }
-
-    def __init__(self, INIT_SNAKE_POSITIONS):
-        self.snake_body = INIT_SNAKE_POSITIONS
-        self.did_eat = False
-        self.prev_direction = 'up'
-        self.possible_actions = ['up', 'right', 'left']
-
+    def __init__(self):
         self.current_reward = 0
         self.gamma = 0.9
-        self.dataframe = pd.DataFrame() # ???
+        self.dataframe = pd.DataFrame()
         self.short_memory = np.array([])
         self.agent_target = 1
         self.agent_predict = 0
@@ -127,6 +114,60 @@ class SnakeAgent:
             model.load_weights(weights)
 
         return model
+
+    def get_action(self, prev_state, prev_direction, possible_actions):
+        """returns a random action (forward, right, left)"""
+        if random.randint(0, 200) < self.epsilon:
+            current_direction = possible_actions[randint(0, 2)]
+            # current_direction = to_categorical(randint(0, 2), num_classes=3) # I don't want to use this as I don't need to include the action
+        else:
+            prediction = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
+            # current_direction = to_categorical(np.argmax(prediction[0]), num_classes=3) # I don't want to use this as I don't need to include the action
+            current_direction = possible_actions[np.argmax(prediction[0])] # will this work?
+        self.epsilon = 80 - game_counter
+        return current_direction
+
+    def train_short_memory(self, prev_state, action, reward, current_state, game_over):
+        target = reward
+        if not game_over:
+            target = reward + self.gamma * np.amax(self.model.predict(current_state.reshape((1, NUM_OF_INPUTS)))[0])
+        target_f = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
+        target_f[0][np.argmax(action)] = target
+        self.model.fit(prev_state.reshape((1, NUM_OF_INPUTS)), target_f, epochs=1, verbose=0)
+
+    def remember(self, state, action, reward, current_state, done):
+        self.memory.append((state, action, reward, current_state, done))
+
+    def replay_new(self, memory):
+        if len(memory) > 1000:
+            minibatch = random.sample(memory, 1000)
+        else:
+            minibatch = memory
+
+        for state, action, reward, current_state, done in minibatch:
+            target = reward
+            if not done:
+                target = reward + self.gamma * np.amax(self.model.predict(np.array([current_state]))[0])
+            target_f = self.model.predict(np.array([state]))
+            target_f[0][np.argmax(action)] = target
+            self.model.fit(np.array([state]), target_f, epochs=1, verbose=0)
+
+
+class Snake:
+    """Holds a list of all snake positions"""
+
+    MAP = {
+        'up': [-1, 0],
+        'down': [1, 0],
+        'right': [0, 1],
+        'left': [0, -1],
+    }
+
+    def __init__(self, INIT_SNAKE_POSITIONS):
+        self.snake_body = INIT_SNAKE_POSITIONS
+        self.did_eat = False
+        self.prev_direction = 'up'
+        self.possible_actions = ['up', 'right', 'left']
 
     def calc_destination(self, direction):
         """add diff_xy to snake_head"""
@@ -184,18 +225,6 @@ class SnakeAgent:
         else:
             return False
 
-    def get_action(self, prev_state, prev_direction):
-        """returns a random action (forward, right, left)"""
-        if random.randint(0, 200) < self.epsilon:
-            current_direction = self.possible_actions[randint(0, 2)]
-            # current_direction = to_categorical(randint(0, 2), num_classes=3) # I don't want to use this as I don't need to include the action
-        else:
-            prediction = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
-            # current_direction = to_categorical(np.argmax(prediction[0]), num_classes=3) # I don't want to use this as I don't need to include the action
-            current_direction = self.possible_actions[np.argmax(prediction[0])] # will this work?
-        self.epsilon = 80 - game_counter
-        return current_direction
-
     def set_reward(self, game_over):
         self.reward = 0
         if game_over:
@@ -203,31 +232,6 @@ class SnakeAgent:
         if self.did_eat:
             self.reward = 10
         return self.reward
-
-    def train_short_memory(self, prev_state, action, reward, current_state, game_over):
-        target = reward
-        if not game_over:
-            target = reward + self.gamma * np.amax(self.model.predict(current_state.reshape((1, NUM_OF_INPUTS)))[0])
-        target_f = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
-        target_f[0][np.argmax(action)] = target
-        self.model.fit(prev_state.reshape((1, NUM_OF_INPUTS)), target_f, epochs=1, verbose=0)
-
-    def remember(self, state, action, reward, current_state, done):
-        self.memory.append((state, action, reward, current_state, done))
-
-    def replay_new(self, memory):
-        if len(memory) > 1000:
-            minibatch = random.sample(memory, 1000)
-        else:
-            minibatch = memory
-
-        for state, action, reward, current_state, done in minibatch:
-            target = reward
-            if not done:
-                target = reward + self.gamma * np.amax(self.model.predict(np.array([current_state]))[0])
-            target_f = self.model.predict(np.array([state]))
-            target_f[0][np.argmax(action)] = target
-            self.model.fit(np.array([state]), target_f, epochs=1, verbose=0)
 
     def get_close_sight(self, direction):
         neighbours = []
@@ -260,7 +264,7 @@ class SnakeAgent:
             self.possible_actions = ['left', 'up', 'down']
 
     def __repr__(self):
-        return "SnakeAgent({})".format(self.snake_body)
+        return "Snake({})".format(self.snake_body)
 
 
 class Apple:
@@ -288,7 +292,7 @@ class Game:
     tail = None
 
     def __init__(self):
-        self.snake = SnakeAgent(INIT_SNAKE_POSITIONS[:])
+        self.snake = Snake(INIT_SNAKE_POSITIONS[:])
         self.board = Board()
         self.apple = Apple()
         self.score = 0
@@ -332,8 +336,7 @@ class Game:
         return any(check_for_food)
 
     def get_state(self, direction):
-        """returns the state of the game. Will return a list of onehot encoded booleans (1 or 0). The list will then be the input of the neural network"""
-        # state: order matter! -> forward, right, left (relative)
+        """Returns the state of the game in an ordered and onehot encoded list of booleans (1 or 0). This will be the input of the neural network"""
         state = []
 
         # dangers
@@ -370,7 +373,7 @@ class Game:
         self.game_states.append(self.board)
         self.board.draw_board()
 
-    def initial_update(self):
+    def initial_update(self, agent):
         # print('---')
         prev_state = self.get_state(PREV_DIRECTION)
         game.snake.set_possible_actions(game.prev_direction)
@@ -378,8 +381,8 @@ class Game:
         self.update(INIT_DIRECTION)
         current_state = self.get_state(self.snake.current_direction)
         reward = self.snake.set_reward(self.game_over)
-        self.snake.train_short_memory(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
-        game.snake.memory.append((prev_state, self.snake.current_direction, reward, current_state, self.game_over))
+        agent.train_short_memory(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
+        agent.memory.append((prev_state, self.snake.current_direction, reward, current_state, self.game_over))
 
         # if game.score > high_score:
         #     high_score = game.score
@@ -412,6 +415,8 @@ if __name__ == '__main__':
     counter_plot = []
     high_score = 0
 
+    agent = Agent() # move over agent features
+
     while game_counter < 150: # simulation-loop (continue training until user stops simulation)
         # print('====== Launching new game ======')
         game = Game()
@@ -421,17 +426,17 @@ if __name__ == '__main__':
         time.sleep(0.05)
         os.system('clear')
 
-        game.initial_update()
+        game.initial_update(agent)
         while not game.game_over: # game-loop
             # print('---')
             prev_state = game.get_state(game.prev_direction)
             game.snake.set_possible_actions(game.prev_direction)
-            game.snake.current_direction = game.snake.get_action(prev_state, game.prev_direction)
+            game.snake.current_direction = agent.get_action(prev_state, game.prev_direction, game.snake.possible_actions)
             game.update(game.snake.current_direction)
             current_state = game.get_state(game.snake.current_direction)
             reward = game.snake.set_reward(game.game_over)
-            game.snake.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
-            game.snake.memory.append((prev_state, game.snake.current_direction, reward, current_state, game.game_over))
+            agent.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
+            agent.memory.append((prev_state, game.snake.current_direction, reward, current_state, game.game_over))
 
             if game.score > high_score:
                 high_score = game.score
@@ -443,7 +448,7 @@ if __name__ == '__main__':
             time.sleep(0.05)
             os.system('clear')
 
-        game.snake.replay_new(game.snake.memory)
+        agent.replay_new(agent.memory)
         games.append(game) # append game to the list of games
         game_counter += 1
         score_plot.append(game.score)
@@ -453,6 +458,6 @@ if __name__ == '__main__':
         time.sleep(0.8)
         os.system('clear')
 
-    game.snake.model.save_weights('my_weights.hdf5') # # save model
+    agent.model.save_weights('my_weights.hdf5') # # save model
     plot_seaborn(counter_plot, score_plot)
     print('Simulation done: Saving Model as:', MODEL_NAME)
