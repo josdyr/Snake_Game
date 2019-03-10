@@ -1,16 +1,14 @@
-import random
-import time
-from random import randint
+import random, time, os, copy
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from operator import add
-import matplotlib.pyplot as plt
 import seaborn as sns
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout
 from keras.optimizers import Adam
 from keras.utils import to_categorical
-import os
+from operator import add
+from random import randint
 
 
 BOARD_SIZE = 5
@@ -18,11 +16,9 @@ INIT_SNAKE_POSITIONS = [[2, 2]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 INIT_DIRECTION = 'up'
 PREV_DIRECTION = 'up'
-
-GENERATIONS = 10
+NUM_OF_ITERATIONS = 1
 NUM_OF_INPUTS = 6
 MODEL_NAME = 'my_weights.hdf5'
-# ACTIONS = ['up', 'down', 'right', 'left']
 OPPOSITE_DIRECTION = {
     'up': 'down',
     'down': 'up',
@@ -43,7 +39,7 @@ class Board:
         for cell in self.board:
             cell = None
 
-    def set_snake(self, tail=None):
+    def set_snake(self, game, tail=None):
         for body in game.snake.snake_body:
             # add body segments to board
             body_x = body[0]
@@ -56,15 +52,15 @@ class Board:
             tail_y = tail[1]
             self.board[tail_x][tail_y] = None
 
-    def set_apple(self):
+    def set_apple(self, game):
         self.board[game.apple.apple[0]][game.apple.apple[1]] = game.apple
 
-    def draw_board(self):
-        for x, row in enumerate(self.board):
+    def draw_board(self, board, game):
+        for x, row in enumerate(board):
             for y, col in enumerate(row):
-                if self.board[x][y] == game.snake.snake_body[0]:
+                if board[x][y] == game.snake.snake_body[0]:
                     print("[H]", end='')
-                elif isinstance(self.board[x][y], Apple):
+                elif isinstance(board[x][y], Apple):
                     print("{}".format("[ ]" if col is None else "[A]"), end='')
                 else:
                     print("{}".format("[ ]" if col is None else "[B]"), end='')
@@ -115,7 +111,7 @@ class Agent:
 
         return model
 
-    def get_action(self, prev_state, prev_direction, possible_actions):
+    def get_action(self, prev_state, prev_direction, possible_actions, game_counter):
         """returns a random action (forward, right, left)"""
         if random.randint(0, 200) < self.epsilon:
             current_direction = possible_actions[randint(0, 2)]
@@ -194,13 +190,13 @@ class Snake:
         else:
             return False
 
-    def move(self, direction):
+    def move(self, direction, game):
         destination = self.calc_destination(direction)
         tail = self.snake_body[-1]
-        if self.apple_collision(destination, tail):
+        if self.apple_collision(destination, tail, game):
             tail = None
             game.apple = Apple()
-            game.board.set_apple()
+            game.board.set_apple(game)
             self.did_eat = True
             game.score += 1
         del self.snake_body[-1]
@@ -217,7 +213,7 @@ class Snake:
             self.snake_body.insert(0, destination)
         return tail
 
-    def apple_collision(self, destination, tail):
+    def apple_collision(self, destination, tail, game):
         if destination == game.apple.apple:
             print("apple_collision=True")
             self.snake_body.append(tail)  # problem: generalise tail input?
@@ -263,8 +259,11 @@ class Snake:
         elif prev_direction == 'left':
             self.possible_actions = ['left', 'up', 'down']
 
-    def __repr__(self):
+    def __str__(self):
         return "Snake({})".format(self.snake_body)
+
+    def __repr__(self):
+        return "Snke"
 
 
 class Apple:
@@ -278,8 +277,8 @@ class Apple:
         else:
             self.apple = apple
 
-    def __str__(self):
-        return "[Appl]"
+    def __repr__(self):
+        return "Appl"
 
 
 class Game:
@@ -288,7 +287,6 @@ class Game:
     apple_count = 0
     game_over = False
     apples_eaten = 0
-    game_states = []
     tail = None
 
     def __init__(self):
@@ -298,6 +296,7 @@ class Game:
         self.score = 0
         self.game_steps = 0
         self.prev_direction = ''
+        self.game_states = []
 
     def rel_dir(self, direction):
         """absolute to relative direction mapping"""
@@ -320,7 +319,7 @@ class Game:
         """return True if there is any food in the given direction"""
         snake_head = self.snake.snake_body[0]
         check_for_food = []
-        if not game.game_over:
+        if not self.game_over:
             if direction == 'up':
                 for i in range(1, (BOARD_SIZE - (BOARD_SIZE - snake_head[0]) + 1)):
                     check_for_food.append(isinstance(self.board.board[snake_head[0]-i][snake_head[1]], Apple))
@@ -363,101 +362,118 @@ class Game:
 
     def update(self, direction):  # Update Game State
         """Takes a direction and executes move"""
-        self.board.set_apple()
-        self.tail = self.snake.move(direction)
+        self.board.set_apple(self)
+        self.tail = self.snake.move(direction, self)
         self.board.clear_board()
         try:
-            self.board.set_snake(self.tail)
+            self.board.set_snake(self, self.tail)
         except Exception as e:
-            print("game_over =", game.game_over)
-        self.game_states.append(self.board)
-        self.board.draw_board()
+            print("game_over =", self.game_over)
+        self.game_states.append(copy.deepcopy(self.board.board))
+        self.board.draw_board(self.board.board, self)
 
-    def initial_update(self, agent):
+    def initial_update(self, simulation, agent):
         # print('---')
         prev_state = self.get_state(PREV_DIRECTION)
-        game.snake.set_possible_actions(game.prev_direction)
+        self.snake.set_possible_actions(self.prev_direction)
         self.snake.current_direction = INIT_DIRECTION
         self.update(INIT_DIRECTION)
         current_state = self.get_state(self.snake.current_direction)
         reward = self.snake.set_reward(self.game_over)
         agent.train_short_memory(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
         agent.memory.append((prev_state, self.snake.current_direction, reward, current_state, self.game_over))
-
-        # if game.score > high_score:
-        #     high_score = game.score
-
+        simulation.set_high_score(self.score)
         self.game_steps += 1
-        game.prev_direction = INIT_DIRECTION
+        self.prev_direction = INIT_DIRECTION
         # print('---')
-        print(game.snake.current_direction)
+        print(self.snake.current_direction)
         time.sleep(0.05)
-        os.system('clear')
+        # os.system('clear')
 
 
-def get_high_score(score, high_score):
-        if score >= high_score:
-            return score
+class Simulation:
+
+    def __init__(self):
+        self.name = 'my_simulation'
+        self.games = []
+        self.game_counter = 0
+        self.score_plot = []
+        self.counter_plot = []
+        self.agent = Agent()
+        self.high_score = 0
+
+    def plot_seaborn(self, array_counter, array_score):
+        sns.set(color_codes=True)
+        ax = sns.regplot(np.array([array_counter])[0], np.array([array_score])[0], color="b", x_jitter=.1, line_kws={'color':'green'})
+        ax.set(xlabel='games', ylabel='score')
+        plt.show()
+
+    def get_best_game(self):
+        if self.games:
+            best_game = self.games[0]
+            for game in self.games:
+                if game.score >= best_game.score:
+                    best_game = game
         else:
-            return high_score
+            print("Simulation don't have any games. Run it with simulation.run() to gather some games.")
+        return best_game
 
-def plot_seaborn(array_counter, array_score):
-    sns.set(color_codes=True)
-    ax = sns.regplot(np.array([array_counter])[0], np.array([array_score])[0], color="b", x_jitter=.1, line_kws={'color':'green'})
-    ax.set(xlabel='games', ylabel='score')
-    plt.show()
+    def replay_game(self, game):
+        for current_board in game.game_states:
+            game.board.draw_board(current_board, game)
 
+    def set_high_score(self, score):
+        if score >= self.high_score:
+            self.high_score = score
 
-if __name__ == '__main__':
-    game_counter = 0
-    games = []
-    score_plot = []
-    counter_plot = []
-    high_score = 0
+    def run(self, num_of_iterations):
 
-    agent = Agent() # move over agent features
-
-    while game_counter < 150: # simulation-loop (continue training until user stops simulation)
-        # print('====== Launching new game ======')
-        game = Game()
-        game.board.set_snake()
-        os.system('clear')
-        game.board.draw_board()
-        time.sleep(0.05)
-        os.system('clear')
-
-        game.initial_update(agent)
-        while not game.game_over: # game-loop
-            # print('---')
-            prev_state = game.get_state(game.prev_direction)
-            game.snake.set_possible_actions(game.prev_direction)
-            game.snake.current_direction = agent.get_action(prev_state, game.prev_direction, game.snake.possible_actions)
-            game.update(game.snake.current_direction)
-            current_state = game.get_state(game.snake.current_direction)
-            reward = game.snake.set_reward(game.game_over)
-            agent.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
-            agent.memory.append((prev_state, game.snake.current_direction, reward, current_state, game.game_over))
-
-            if game.score > high_score:
-                high_score = game.score
-
-            game.game_steps += 1
-            game.prev_direction = game.snake.current_direction
-            # print('---')
-            print(game.snake.current_direction)
+        while self.game_counter < num_of_iterations: # simulation-loop (continue training until user stops simulation)
+            print('====== Launching new game ======')
+            game = Game()
+            game.board.set_snake(game)
+            # os.system('clear')
+            game.board.draw_board(game.board.board, game)
             time.sleep(0.05)
-            os.system('clear')
+            # os.system('clear')
 
-        agent.replay_new(agent.memory)
-        games.append(game) # append game to the list of games
-        game_counter += 1
-        score_plot.append(game.score)
-        counter_plot.append(game_counter)
-        print('Game', game_counter, ', Score', game.score, 'high_score', high_score, ' Steps: ', game.game_steps)
-        print('====== Current game done: Saving game and launching a new one. ======')
-        time.sleep(0.8)
-        os.system('clear')
+            game.initial_update(self, self.agent)
 
-    agent.model.save_weights('my_weights.hdf5') # # save model
-    plot_seaborn(counter_plot, score_plot)
-    print('Simulation done: Saving Model as:', MODEL_NAME)
+            while not game.game_over: # game-loop
+                # print('---')
+                prev_state = game.get_state(game.prev_direction)
+                game.snake.set_possible_actions(game.prev_direction)
+                game.snake.current_direction = self.agent.get_action(prev_state, game.prev_direction, game.snake.possible_actions, self.game_counter)
+                game.update(game.snake.current_direction)
+                current_state = game.get_state(game.snake.current_direction)
+                reward = game.snake.set_reward(game.game_over)
+                self.agent.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
+                self.agent.memory.append((prev_state, game.snake.current_direction, reward, current_state, game.game_over))
+                self.set_high_score(game.score)
+                game.game_steps += 1
+                game.prev_direction = game.snake.current_direction
+                # print('---')
+                print(game.snake.current_direction)
+                time.sleep(0.05)
+                # os.system('clear')
+
+            self.agent.replay_new(self.agent.memory)
+            self.games.append(game) # append game to the list of games
+            self.game_counter += 1
+            self.score_plot.append(game.score)
+            self.counter_plot.append(self.game_counter)
+            print('Game', self.game_counter, ', Score', game.score, 'high_score', self.high_score, ' Steps: ', game.game_steps)
+            print('====== Current game done: Saving game and launching a new one. ======')
+            time.sleep(0.8)
+            # os.system('clear')
+
+        self.agent.model.save_weights('my_weights.hdf5') # # save model
+        self.plot_seaborn(self.counter_plot, self.score_plot)
+        print('Simulation done: Saving Model as:', MODEL_NAME)
+
+
+import ipdb; ipdb.set_trace()
+simulation = Simulation()
+simulation.run(NUM_OF_ITERATIONS)
+best_game = simulation.get_best_game()
+simulation.replay_game(best_game)
