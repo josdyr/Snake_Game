@@ -16,7 +16,7 @@ INIT_SNAKE_POSITIONS = [[2, 2]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 INIT_DIRECTION = 'up'
 PREV_DIRECTION = 'up'
-NUM_OF_ITERATIONS = 150
+NUM_OF_ITERATIONS = 200
 NUM_OF_INPUTS = 6
 MODEL_NAME = 'my_weights.hdf5'
 OPPOSITE_DIRECTION = {
@@ -25,6 +25,7 @@ OPPOSITE_DIRECTION = {
     'right': 'left',
     'left': 'right'
 }
+EPSILONE_FACTOR = .995
 
 
 class Board:
@@ -424,6 +425,7 @@ class Simulation:
     def replay_game(self, game):
         for current_board in game.game_states:
             game.board.draw_board(current_board, game)
+            time.sleep(0.05)
 
     def set_high_score(self, score):
         if score >= self.high_score:
@@ -461,9 +463,9 @@ class Simulation:
             print("game:{}, score:{}, high_score:{}, predicted_moves:{}/{}, {}".format(self.game_counter, game.score, self.high_score, (game.game_steps - self.agent.random_moves), game.game_steps, ((game.game_steps - self.agent.random_moves) / game.game_steps)))
             print('====== end of game ======')
             print()
-            self.agent.epsilon *= .998
+            self.agent.epsilon *= EPSILONE_FACTOR
             self.agent.random_moves = 0
-            time.sleep(0.8)
+            time.sleep(1.2)
             self.game_counter += 1
 
         self.agent.model.save_weights('my_weights.hdf5') # save model
@@ -471,7 +473,6 @@ class Simulation:
         print('Simulation done: Saving Model as:', MODEL_NAME)
 
 
-import ipdb; ipdb.set_trace()
 simulation = Simulation()
 simulation.run(NUM_OF_ITERATIONS)
 best_game = simulation.get_best_game()
