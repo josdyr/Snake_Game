@@ -1,4 +1,4 @@
-import random, time, os, copy
+import random, time, os, copy, pprint
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ INIT_SNAKE_POSITIONS = [[2, 2]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 INIT_DIRECTION = 'up'
 PREV_DIRECTION = 'up'
-NUM_OF_ITERATIONS = 1
+NUM_OF_ITERATIONS = 150
 NUM_OF_INPUTS = 6
 MODEL_NAME = 'my_weights.hdf5'
 OPPOSITE_DIRECTION = {
@@ -372,8 +372,7 @@ class Game:
         self.game_states.append(copy.deepcopy(self.board.board))
         self.board.draw_board(self.board.board, self)
 
-    def initial_update(self, simulation, agent):
-        # print('---')
+    def initial_update(self, simulation, agent, game):
         prev_state = self.get_state(PREV_DIRECTION)
         self.snake.set_possible_actions(self.prev_direction)
         self.snake.current_direction = INIT_DIRECTION
@@ -385,10 +384,10 @@ class Game:
         simulation.set_high_score(self.score)
         self.game_steps += 1
         self.prev_direction = INIT_DIRECTION
-        # print('---')
-        print(self.snake.current_direction)
+        print('{}, random_move={}, epsilon={}'.format(game.snake.current_direction, agent.random_move, agent.epsilon))
+        print('memory_length', len(agent.memory))
+        # pprint.pprint(agent.memory)
         time.sleep(0.05)
-        # os.system('clear')
 
 
 class Simulation:
@@ -429,18 +428,12 @@ class Simulation:
     def run(self, num_of_iterations):
 
         while self.game_counter < num_of_iterations: # simulation-loop (continue training until user stops simulation)
-            print('====== Launching new game ======')
+            print('====== game {} ======'.format(self.game_counter))
             game = Game()
             game.board.set_snake(game)
-            # os.system('clear')
-            game.board.draw_board(game.board.board, game)
-            time.sleep(0.05)
-            # os.system('clear')
-
-            game.initial_update(self, self.agent)
+            game.initial_update(self, self.agent, game)
 
             while not game.game_over: # game-loop
-                # print('---')
                 prev_state = game.get_state(game.prev_direction)
                 game.snake.set_possible_actions(game.prev_direction)
                 game.snake.current_direction = self.agent.get_action(prev_state, game.prev_direction, game.snake.possible_actions, self.game_counter)
@@ -450,29 +443,31 @@ class Simulation:
                 self.agent.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
                 self.agent.memory.append((prev_state, game.snake.current_direction, reward, current_state, game.game_over))
                 self.set_high_score(game.score)
-                game.game_steps += 1
                 game.prev_direction = game.snake.current_direction
-                # print('---')
-                print(game.snake.current_direction)
+                print('{}, random_move={}, epsilon={}'.format(game.snake.current_direction, self.agent.random_move, self.agent.epsilon))
+                print('memory_length', len(self.agent.memory))
+                # pprint.pprint(self.agent.memory)
                 time.sleep(0.05)
-                # os.system('clear')
+                game.game_steps += 1
 
             self.agent.replay_new(self.agent.memory)
             self.games.append(game) # append game to the list of games
-            self.game_counter += 1
             self.score_plot.append(game.score)
             self.counter_plot.append(self.game_counter)
-            print('Game', self.game_counter, ', Score', game.score, 'high_score', self.high_score, ' Steps: ', game.game_steps)
-            print('====== Current game done: Saving game and launching a new one. ======')
+            print("game:{}, score:{}, high_score:{}, predicted_moves:{}/{}, {}%".format(self.game_counter, game.score, self.high_score, (game.game_steps - self.agent.random_moves), game.game_steps, ((game.game_steps - self.agent.random_moves) / game.game_steps)))
+            print('====== end of game ======')
+            print()
+            self.agent.epsilon *= .998
+            self.agent.random_moves = 0
             time.sleep(0.8)
-            # os.system('clear')
+            self.game_counter += 1
 
-        self.agent.model.save_weights('my_weights.hdf5') # # save model
+        self.agent.model.save_weights('my_weights.hdf5') # save model
         self.plot_seaborn(self.counter_plot, self.score_plot)
         print('Simulation done: Saving Model as:', MODEL_NAME)
 
 
-# import ipdb; ipdb.set_trace()
+import ipdb; ipdb.set_trace()
 simulation = Simulation()
 simulation.run(NUM_OF_ITERATIONS)
 best_game = simulation.get_best_game()
