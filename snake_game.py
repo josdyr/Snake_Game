@@ -472,7 +472,7 @@ class Simulation:
         print('Simulation done: Saving Model as:', MODEL_NAME)
 
 
-import ipdb; ipdb.set_trace()
+# import ipdb; ipdb.set_trace()
 simulation = Simulation()
 simulation.run(NUM_OF_ITERATIONS)
 best_game = simulation.get_best_game()
