@@ -90,9 +90,11 @@ class Agent:
         self.learning_rate = 0.0005
         self.model = self.neural_network()
         # self.model = self.neural_network("my_weights.hdf5")
-        self.epsilon = 0
+        self.epsilon = 1.0
         self.actual = []
         self.memory = []
+        self.random_move = True
+        self.random_moves = 1 # first move is 'considered' a random move (although it is always forced: 'up')
 
     def neural_network(self, weights=None):
         model = Sequential()
@@ -113,14 +115,16 @@ class Agent:
 
     def get_action(self, prev_state, prev_direction, possible_actions, game_counter):
         """returns a random action (forward, right, left)"""
-        if random.randint(0, 200) < self.epsilon:
+        if random.uniform(.0, 1.0) < self.epsilon:
             current_direction = possible_actions[randint(0, 2)]
             # current_direction = to_categorical(randint(0, 2), num_classes=3) # I don't want to use this as I don't need to include the action
+            self.random_move = True
+            self.random_moves += 1
         else:
             prediction = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
             # current_direction = to_categorical(np.argmax(prediction[0]), num_classes=3) # I don't want to use this as I don't need to include the action
             current_direction = possible_actions[np.argmax(prediction[0])] # will this work?
-        self.epsilon = 80 - game_counter
+            self.random_move = False
         return current_direction
 
     def train_short_memory(self, prev_state, action, reward, current_state, game_over):
@@ -454,7 +458,7 @@ class Simulation:
             self.games.append(game) # append game to the list of games
             self.score_plot.append(game.score)
             self.counter_plot.append(self.game_counter)
-            print("game:{}, score:{}, high_score:{}, predicted_moves:{}/{}, {}%".format(self.game_counter, game.score, self.high_score, (game.game_steps - self.agent.random_moves), game.game_steps, ((game.game_steps - self.agent.random_moves) / game.game_steps)))
+            print("game:{}, score:{}, high_score:{}, predicted_moves:{}/{}, {}".format(self.game_counter, game.score, self.high_score, (game.game_steps - self.agent.random_moves), game.game_steps, ((game.game_steps - self.agent.random_moves) / game.game_steps)))
             print('====== end of game ======')
             print()
             self.agent.epsilon *= .998
