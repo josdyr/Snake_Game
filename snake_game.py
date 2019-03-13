@@ -16,8 +16,8 @@ INIT_SNAKE_POSITIONS = [[2, 2]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 INIT_DIRECTION = 'up'
 PREV_DIRECTION = 'up'
-NUM_OF_ITERATIONS = 200
-NUM_OF_INPUTS = 6
+NUM_OF_ITERATIONS = 500
+NUM_OF_INPUTS = 9
 MODEL_NAME = 'my_weights.hdf5'
 OPPOSITE_DIRECTION = {
     'up': 'down',
@@ -25,7 +25,17 @@ OPPOSITE_DIRECTION = {
     'right': 'left',
     'left': 'right'
 }
-EPSILONE_FACTOR = .995
+RELATIVE_DIRECTION = {
+    'forward': [1, 0, 0],
+    'right': [0, 1, 0],
+    'left': [0, 0, 1]
+}
+
+EPSILON_FACTOR = .999
+MAX_EPSILON = .8
+MIN_EPSILON = .4
+
+GAMMA = .81
 
 
 class Board:
@@ -83,15 +93,15 @@ class Agent:
 
     def __init__(self):
         self.current_reward = 0
-        self.gamma = 0.9
+        self.gamma = GAMMA
         self.dataframe = pd.DataFrame()
         self.short_memory = np.array([])
         self.agent_target = 1
         self.agent_predict = 0
         self.learning_rate = 0.0005
         self.model = self.neural_network()
-        # self.model = self.neural_network("my_weights.hdf5")
-        self.epsilon = 1.0
+        self.model = self.neural_network("my_weights.hdf5")
+        self.epsilon = MAX_EPSILON
         self.actual = []
         self.memory = []
         self.random_move = True
@@ -115,8 +125,8 @@ class Agent:
         return model
 
     def get_action(self, prev_state, prev_direction, possible_actions, game_counter):
-        """returns a random action (forward, right, left)"""
-        if random.uniform(.0, 1.0) < self.epsilon:
+        """returns a random action (up, down, right, left)"""
+        if random.uniform(0, 1) < self.epsilon:
             current_direction = possible_actions[randint(0, 2)]
             # current_direction = to_categorical(randint(0, 2), num_classes=3) # I don't want to use this as I don't need to include the action
             self.random_move = True
@@ -131,7 +141,7 @@ class Agent:
     def train_short_memory(self, prev_state, action, reward, current_state, game_over):
         target = reward
         if not game_over:
-            target = reward + self.gamma * np.amax(self.model.predict(current_state.reshape((1, NUM_OF_INPUTS)))[0])
+            target = reward + GAMMA * np.amax(self.model.predict(current_state.reshape((1, NUM_OF_INPUTS)))[0])
         target_f = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
         target_f[0][np.argmax(action)] = target
         self.model.fit(prev_state.reshape((1, NUM_OF_INPUTS)), target_f, epochs=1, verbose=0)
@@ -148,7 +158,7 @@ class Agent:
         for state, action, reward, current_state, done in minibatch:
             target = reward
             if not done:
-                target = reward + self.gamma * np.amax(self.model.predict(np.array([current_state]))[0])
+                target = reward + GAMMA * np.amax(self.model.predict(np.array([current_state]))[0])
             target_f = self.model.predict(np.array([state]))
             target_f[0][np.argmax(action)] = target
             self.model.fit(np.array([state]), target_f, epochs=1, verbose=0)
@@ -169,6 +179,33 @@ class Snake:
         self.did_eat = False
         self.prev_direction = 'up'
         self.possible_actions = ['up', 'right', 'left']
+        self.current_direction = INIT_DIRECTION # up
+        self.current_relative_direction = 'forward'
+        self.prev_relative_direction = 'forward'
+
+    def set_current_relative_direction(self, current_direction, previous_direction):
+        if current_direction == previous_direction:
+            self.current_relative_direction = 'forward'
+        elif current_direction == 'up':
+            if previous_direction == 'right':
+                self.current_relative_direction = 'left'
+            if previous_direction == 'left':
+                self.current_relative_direction = 'right'
+        elif current_direction == 'down':
+            if previous_direction == 'right':
+                self.current_relative_direction = 'right'
+            if previous_direction == 'left':
+                self.current_relative_direction = 'left'
+        elif current_direction == 'right':
+            if previous_direction == 'up':
+                self.current_relative_direction = 'right'
+            if previous_direction == 'down':
+                self.current_relative_direction = 'left'
+        elif current_direction == 'left':
+            if previous_direction == 'up':
+                self.current_relative_direction = 'left'
+            if previous_direction == 'down':
+                self.current_relative_direction = 'right'
 
     def calc_destination(self, direction):
         """add diff_xy to snake_head"""
@@ -339,7 +376,7 @@ class Game:
                     check_for_food.append(isinstance(self.board.board[snake_head[0]][snake_head[1]-i], Apple))
         return any(check_for_food)
 
-    def get_state(self, direction):
+    def get_state(self, direction, relative_direction):
         """Returns the state of the game in an ordered and onehot encoded list of booleans (1 or 0). This will be the input of the neural network"""
         state = []
 
@@ -357,6 +394,9 @@ class Game:
         state.append(self.any_food(right))
         state.append(self.any_food(left))
 
+        # move
+        state.extend(RELATIVE_DIRECTION[relative_direction])
+
         for i, s in enumerate(state):
             if s:
                 state[i] = 1
@@ -373,23 +413,24 @@ class Game:
         try:
             self.board.set_snake(self, self.tail)
         except Exception as e:
-            print("game_over =", self.game_over)
+            pass
         self.game_states.append(copy.deepcopy(self.board.board))
         self.board.draw_board(self.board.board, self)
 
     def initial_update(self, simulation, agent, game):
-        prev_state = self.get_state(PREV_DIRECTION)
+        prev_state = self.get_state(PREV_DIRECTION, game.snake.prev_relative_direction)
         self.snake.set_possible_actions(self.prev_direction)
         self.snake.current_direction = INIT_DIRECTION
+        game.snake.set_current_relative_direction(self.snake.current_direction, PREV_DIRECTION)
         self.update(INIT_DIRECTION)
-        current_state = self.get_state(self.snake.current_direction)
+        current_state = self.get_state(self.snake.current_direction, self.snake.current_relative_direction)
         reward = self.snake.set_reward(self.game_over)
         agent.train_short_memory(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
         agent.memory.append((prev_state, self.snake.current_direction, reward, current_state, self.game_over))
         simulation.set_high_score(self.score)
         self.game_steps += 1
         self.prev_direction = INIT_DIRECTION
-        print('{}, random_move={}, epsilon={}'.format(game.snake.current_direction, agent.random_move, agent.epsilon))
+        print('{} ({}), random_move={}, epsilon={}'.format(game.snake.current_direction, game.snake.current_relative_direction, agent.random_move, agent.epsilon))
         print('memory_length', len(agent.memory))
         # pprint.pprint(agent.memory)
         time.sleep(0.05)
@@ -405,6 +446,10 @@ class Simulation:
         self.counter_plot = []
         self.agent = Agent()
         self.high_score = 0
+        self.total_game_steps = 0
+        self.total_epsilon = 0
+        self.avg_steps = 1
+        self.avg_epsilon = 0
 
     def plot_seaborn(self, array_counter, array_score):
         sns.set(color_codes=True)
@@ -440,30 +485,42 @@ class Simulation:
             game.initial_update(self, self.agent, game)
 
             while not game.game_over: # game-loop
-                prev_state = game.get_state(game.prev_direction)
+                prev_state = game.get_state(game.prev_direction, game.snake.prev_relative_direction)
                 game.snake.set_possible_actions(game.prev_direction)
                 game.snake.current_direction = self.agent.get_action(prev_state, game.prev_direction, game.snake.possible_actions, self.game_counter)
+                game.snake.set_current_relative_direction(game.snake.current_direction, game.prev_direction)
                 game.update(game.snake.current_direction)
-                current_state = game.get_state(game.snake.current_direction)
+                current_state = game.get_state(game.snake.current_direction, game.snake.current_relative_direction)
                 reward = game.snake.set_reward(game.game_over)
                 self.agent.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
                 self.agent.memory.append((prev_state, game.snake.current_direction, reward, current_state, game.game_over))
                 self.set_high_score(game.score)
                 game.prev_direction = game.snake.current_direction
-                print('{}, random_move={}, epsilon={}'.format(game.snake.current_direction, self.agent.random_move, self.agent.epsilon))
+                game.snake.prev_relative_direction = game.snake.current_relative_direction
+                print('current_state: {}'.format(current_state))
+                print('{} ({}), random_move={}, epsilon={}'.format(game.snake.current_direction, game.snake.current_relative_direction, self.agent.random_move, self.agent.epsilon))
                 print('memory_length', len(self.agent.memory))
                 # pprint.pprint(self.agent.memory)
                 time.sleep(0.05)
                 game.game_steps += 1
+                if game.game_steps > 500:
+                    game.game_over = True
+                if self.agent.epsilon > MIN_EPSILON:
+                    self.agent.epsilon *= EPSILON_FACTOR
 
+            self.total_game_steps += game.game_steps
+            self.total_epsilon += self.agent.epsilon
             self.agent.replay_new(self.agent.memory)
             self.games.append(game) # append game to the list of games
             self.score_plot.append(game.score)
             self.counter_plot.append(self.game_counter)
-            print("game:{}, score:{}, high_score:{}, predicted_moves:{}/{}, {}".format(self.game_counter, game.score, self.high_score, (game.game_steps - self.agent.random_moves), game.game_steps, ((game.game_steps - self.agent.random_moves) / game.game_steps)))
+            self.avg_steps = self.total_game_steps / (self.game_counter + 1)
+            self.avg_epsilon = self.total_epsilon / (self.game_counter + 1)
+            print()
+            print('avg: avg_steps:{}, avg_epsilon:{}'.format(round(self.avg_steps, 2), round(self.avg_epsilon, 2)))
+            print('current: game:{}, score:{}, high_score:{}, predicted_moves:{}/{} ({})%'.format(self.game_counter, game.score, self.high_score, (game.game_steps - self.agent.random_moves), game.game_steps, int(((game.game_steps - self.agent.random_moves) / game.game_steps)*100)))
             print('====== end of game ======')
             print()
-            self.agent.epsilon *= EPSILONE_FACTOR
             self.agent.random_moves = 0
             time.sleep(1.2)
             self.game_counter += 1
