@@ -16,7 +16,7 @@ INIT_SNAKE_POSITIONS = [[2, 2]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 INIT_DIRECTION = 'up'
 PREV_DIRECTION = 'up'
-NUM_OF_ITERATIONS = 500
+NUM_OF_ITERATIONS = 100
 NUM_OF_INPUTS = 9
 MODEL_NAME = 'my_weights.hdf5'
 OPPOSITE_DIRECTION = {
@@ -33,7 +33,7 @@ RELATIVE_DIRECTION = {
 
 EPSILON_FACTOR = .999
 MAX_EPSILON = .8
-MIN_EPSILON = .4
+MIN_EPSILON = .25
 
 GAMMA = .81
 
@@ -100,7 +100,7 @@ class Agent:
         self.agent_predict = 0
         self.learning_rate = 0.0005
         self.model = self.neural_network()
-        self.model = self.neural_network("my_weights.hdf5")
+        # self.model = self.neural_network("my_weights.hdf5")
         self.epsilon = MAX_EPSILON
         self.actual = []
         self.memory = []
@@ -425,8 +425,8 @@ class Game:
         self.update(INIT_DIRECTION)
         current_state = self.get_state(self.snake.current_direction, self.snake.current_relative_direction)
         reward = self.snake.set_reward(self.game_over)
-        agent.train_short_memory(prev_state, self.snake.current_direction, reward, current_state, self.game_over)
-        agent.memory.append((prev_state, self.snake.current_direction, reward, current_state, self.game_over))
+        agent.train_short_memory(prev_state, RELATIVE_DIRECTION[game.snake.current_relative_direction], reward, current_state, self.game_over)
+        agent.memory.append((prev_state, RELATIVE_DIRECTION[game.snake.current_relative_direction], reward, current_state, self.game_over))
         simulation.set_high_score(self.score)
         self.game_steps += 1
         self.prev_direction = INIT_DIRECTION
@@ -492,8 +492,8 @@ class Simulation:
                 game.update(game.snake.current_direction)
                 current_state = game.get_state(game.snake.current_direction, game.snake.current_relative_direction)
                 reward = game.snake.set_reward(game.game_over)
-                self.agent.train_short_memory(prev_state, game.snake.current_direction, reward, current_state, game.game_over)
-                self.agent.memory.append((prev_state, game.snake.current_direction, reward, current_state, game.game_over))
+                self.agent.train_short_memory(prev_state, RELATIVE_DIRECTION[game.snake.current_relative_direction], reward, current_state, game.game_over)
+                self.agent.memory.append((prev_state, RELATIVE_DIRECTION[game.snake.current_relative_direction], reward, current_state, game.game_over))
                 self.set_high_score(game.score)
                 game.prev_direction = game.snake.current_direction
                 game.snake.prev_relative_direction = game.snake.current_relative_direction
