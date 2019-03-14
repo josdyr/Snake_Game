@@ -31,11 +31,11 @@ RELATIVE_DIRECTION = {
     'left': [0, 0, 1]
 }
 
-EPSILON_FACTOR = .999
-MAX_EPSILON = .8
-MIN_EPSILON = .25
+EPSILON_FACTOR = .998
+MAX_EPSILON = .5
+MIN_EPSILON = .1
 
-GAMMA = .81
+GAMMA = .8
 
 
 class Board:
@@ -100,7 +100,7 @@ class Agent:
         self.agent_predict = 0
         self.learning_rate = 0.0005
         self.model = self.neural_network()
-        # self.model = self.neural_network("my_weights.hdf5")
+        self.model = self.neural_network("my_weights.hdf5")
         self.epsilon = MAX_EPSILON
         self.actual = []
         self.memory = []
@@ -245,19 +245,19 @@ class Snake:
         if not self.valid_move(destination):
             game.game_over = True
             tail = None
-            print("game_over={}".format(game.game_over))
-            print("APP: OutOfBoundsError: destination={} is outside the board.".format(destination))
+            # print("game_over={}".format(game.game_over))
+            # print("APP: OutOfBoundsError: destination={} is outside the board.".format(destination))
         if self.self_collision(destination):
             game.game_over = True
-            print("game_over={}".format(game.game_over))
-            print("APP: SelfCollision: destination={} is part of the snake_body.".format(destination))
+            # print("game_over={}".format(game.game_over))
+            # print("APP: SelfCollision: destination={} is part of the snake_body.".format(destination))
         else:
             self.snake_body.insert(0, destination)
         return tail
 
     def apple_collision(self, destination, tail, game):
         if destination == game.apple.apple:
-            print("apple_collision=True")
+            # print("apple_collision=True")
             self.snake_body.append(tail)  # problem: generalise tail input?
             return True
         else:
@@ -430,8 +430,9 @@ class Game:
         simulation.set_high_score(self.score)
         self.game_steps += 1
         self.prev_direction = INIT_DIRECTION
-        print('{} ({}), random_move={}, epsilon={}'.format(game.snake.current_direction, game.snake.current_relative_direction, agent.random_move, agent.epsilon))
-        print('memory_length', len(agent.memory))
+        print('current_state:\t{}'.format(current_state))
+        print('{} ({})\trandom_move={}\tepsilon={}%'.format(game.snake.current_direction, game.snake.current_relative_direction, agent.random_move, int(agent.epsilon*100)))
+        print('memory_length={}'.format(len(agent.memory)))
         # pprint.pprint(agent.memory)
         time.sleep(0.05)
 
@@ -497,9 +498,9 @@ class Simulation:
                 self.set_high_score(game.score)
                 game.prev_direction = game.snake.current_direction
                 game.snake.prev_relative_direction = game.snake.current_relative_direction
-                print('current_state: {}'.format(current_state))
-                print('{} ({}), random_move={}, epsilon={}'.format(game.snake.current_direction, game.snake.current_relative_direction, self.agent.random_move, self.agent.epsilon))
-                print('memory_length', len(self.agent.memory))
+                print('current_state:\t{}'.format(current_state))
+                print('{} ({})\trandom_move={}\tepsilon={}'.format(game.snake.current_direction, game.snake.current_relative_direction, self.agent.random_move, int(self.agent.epsilon*100)))
+                print('memory_length={}'.format(len(self.agent.memory)))
                 # pprint.pprint(self.agent.memory)
                 time.sleep(0.05)
                 game.game_steps += 1
@@ -517,8 +518,8 @@ class Simulation:
             self.avg_steps = self.total_game_steps / (self.game_counter + 1)
             self.avg_epsilon = self.total_epsilon / (self.game_counter + 1)
             print()
-            print('avg: avg_steps:{}, avg_epsilon:{}'.format(round(self.avg_steps, 2), round(self.avg_epsilon, 2)))
-            print('current: game:{}, score:{}, high_score:{}, predicted_moves:{}/{} ({})%'.format(self.game_counter, game.score, self.high_score, (game.game_steps - self.agent.random_moves), game.game_steps, int(((game.game_steps - self.agent.random_moves) / game.game_steps)*100)))
+            print('avg: avg_steps:{}\tavg_epsilon:{}%'.format(round(self.avg_steps, 2), round(self.avg_epsilon, 2)))
+            print('current: game:{}\tscore:{}\thigh_score:{}\tpredicted_moves:{}/{} ({})%'.format(self.game_counter, game.score, self.high_score, (game.game_steps - self.agent.random_moves), game.game_steps, int(((game.game_steps - self.agent.random_moves) / game.game_steps)*100)))
             print('====== end of game ======')
             print()
             self.agent.random_moves = 0
