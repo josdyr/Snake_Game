@@ -1,4 +1,4 @@
-import random, time, os, copy, pprint
+import random, time, os, copy, pprint, math
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -11,8 +11,8 @@ from operator import add
 from random import randint
 
 
-BOARD_SIZE = 5
-INIT_SNAKE_POSITIONS = [[2, 2]]
+BOARD_SIZE = 11
+INIT_SNAKE_POSITIONS = [[math.floor(BOARD_SIZE/2), math.floor(BOARD_SIZE/2)]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 INIT_DIRECTION = 'up'
 PREV_DIRECTION = 'up'
@@ -456,6 +456,7 @@ class Simulation:
         sns.set(color_codes=True)
         ax = sns.regplot(np.array([array_counter])[0], np.array([array_score])[0], color="b", x_jitter=.1, line_kws={'color':'green'})
         ax.set(xlabel='games', ylabel='score')
+        plt.savefig('plot_figure.png')
         plt.show()
 
     def get_best_game(self):
@@ -471,6 +472,7 @@ class Simulation:
     def replay_game(self, game):
         for current_board in game.game_states:
             game.board.draw_board(current_board, game)
+            print()
             time.sleep(0.05)
 
     def set_high_score(self, score):
@@ -499,7 +501,7 @@ class Simulation:
                 game.prev_direction = game.snake.current_direction
                 game.snake.prev_relative_direction = game.snake.current_relative_direction
                 print('current_state:\t{}'.format(current_state))
-                print('{} ({})\trandom_move={}\tepsilon={}'.format(game.snake.current_direction, game.snake.current_relative_direction, self.agent.random_move, int(self.agent.epsilon*100)))
+                print('{} ({})\trandom_move={}\tepsilon={}%'.format(game.snake.current_direction, game.snake.current_relative_direction, self.agent.random_move, int(self.agent.epsilon*100)))
                 print('memory_length={}'.format(len(self.agent.memory)))
                 # pprint.pprint(self.agent.memory)
                 time.sleep(0.05)
