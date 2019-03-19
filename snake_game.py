@@ -11,7 +11,7 @@ from operator import add
 from random import randint
 
 
-BOARD_SIZE = 11
+BOARD_SIZE = 5
 INIT_SNAKE_POSITIONS = [[math.floor(BOARD_SIZE/2), math.floor(BOARD_SIZE/2)]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 INIT_DIRECTION = 'up'
@@ -146,18 +146,16 @@ class Agent:
         target_f[0][np.argmax(action)] = target
         self.model.fit(prev_state.reshape((1, NUM_OF_INPUTS)), target_f, epochs=1, verbose=0)
 
-    def remember(self, state, action, reward, current_state, done):
-        self.memory.append((state, action, reward, current_state, done))
-
     def replay_new(self, memory):
+
         if len(memory) > 1000:
             minibatch = random.sample(memory, 1000)
         else:
             minibatch = memory
 
-        for state, action, reward, current_state, done in minibatch:
+        for state, action, reward, current_state, game_over in minibatch:
             target = reward
-            if not done:
+            if not game_over:
                 target = reward + GAMMA * np.amax(self.model.predict(np.array([current_state]))[0])
             target_f = self.model.predict(np.array([state]))
             target_f[0][np.argmax(action)] = target
@@ -533,6 +531,7 @@ class Simulation:
         print('Simulation done: Saving Model as:', MODEL_NAME)
 
 
+import ipdb; ipdb.set_trace()
 simulation = Simulation()
 simulation.run(NUM_OF_ITERATIONS)
 best_game = simulation.get_best_game()
