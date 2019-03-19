@@ -6,8 +6,9 @@ Make sure you have python 3 installed
 ```python -m venv env```
 
 ## activate the environment
-```. env/bin/activate # linux/mac```
-```. env/Script/activate # windows```
+```. env/bin/activate``` # Linux/Mac
+
+```. env/Script/activate``` # Windows
 
 ## install dependencies
 ```pip install -r requirements.txt```
