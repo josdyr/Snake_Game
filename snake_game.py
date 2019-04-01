@@ -1,8 +1,9 @@
-import random, time, sys, os, copy, pprint, math
+import random, time, sys, os, copy, pprint, math, blessings
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import tensorflow as tf
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout
 from keras.optimizers import Adam
@@ -10,30 +11,36 @@ from keras.utils import to_categorical
 from operator import add
 from random import randint
 from tqdm import tqdm
+from blessings import Terminal
 
 
 # Hyper-Parameters
-EPSILON_FACTOR = .998
+EPSILON_DECAY = .998
 MAX_EPSILON = .0
 MIN_EPSILON = .0
-GAMMA = .8
+GAMMA = .8 # discount rate
 ANTI_EXPLORATION_COUNT = 10
+STEPS_INTO_FUTURE = 1000
 
-NUM_OF_ITERATIONS = 10
+EPISODES = 30
 NUM_OF_INPUTS = 9
 
-BOARD_SIZE = 8
+BOARD_SIZE = 5
 
 INIT_SNAKE_POSITIONS = [[math.floor(BOARD_SIZE/2), math.floor(BOARD_SIZE/2)]]
 INIT_POSITION = INIT_SNAKE_POSITIONS[0]
 
-PRINT_MODE = False
+PRINT_MODE = True
 
 
 # Constants
 INIT_DIRECTION = 'up'
 PREV_DIRECTION = 'up'
-MODEL_NAME = 'my_weights_02.hdf5'
+
+MODEL_NAME = 'weights'
+MODEL_NUMBER = 0
+MODEL_EXTENSION = '.hdf5'
+
 OPPOSITE_DIRECTION = {
     'up': 'down',
     'down': 'up',
@@ -46,6 +53,23 @@ RELATIVE_DIRECTION = {
     'left': [0, 0, 1]
 }
 TOOLBAR_WIDTH = 40
+
+
+# class TestMethods(unittest.TestCase):
+#
+#     def test_get_close_sight(self):
+#         self.assertEqual(['up', 'right', 'left'], 'FOO')
+#
+#     def test_isupper(self):
+#         self.assertTrue('FOO'.isupper())
+#         self.assertFalse('Foo'.isupper())
+#
+#     def test_split(self):
+#         s = 'hello world'
+#         self.assertEqual(s.split(), ['hello', 'world'])
+#         # check that s.split fails when the separator is not a string
+#         with self.assertRaises(TypeError):
+#             s.split(2)
 
 
 class Board:
@@ -81,9 +105,9 @@ class Board:
             for x, row in enumerate(board):
                 for y, col in enumerate(row):
                     if board[x][y] == game.snake.snake_body[0]:
-                        print("[H]", end='')
+                        print(t.bold_blue("[H]"), end='')
                     elif isinstance(board[x][y], Apple):
-                        print("{}".format("[ ]" if col is None else "[A]"), end='')
+                        print("{}".format("[ ]" if col is None else t.bold_green("[A]")), end='')
                     else:
                         print("{}".format("[ ]" if col is None else "[B]"), end='')
                 print()
@@ -104,14 +128,14 @@ class Agent:
 
     def __init__(self):
         self.current_reward = 0
-        self.gamma = GAMMA
+        self.gamma = GAMMA # discount rate
         self.dataframe = pd.DataFrame()
         self.short_memory = np.array([])
         self.agent_target = 1
         self.agent_predict = 0
         self.learning_rate = 0.0005
         self.model = self.neural_network()
-        self.model = self.neural_network("my_weights_02.hdf5")
+        # self.model = self.neural_network("my_weights_02.hdf5")
         self.epsilon = MAX_EPSILON
         self.actual = []
         self.memory = []
@@ -120,15 +144,14 @@ class Agent:
 
     def neural_network(self, weights=None):
         model = Sequential()
-        model.add(Dense(output_dim=120, activation='relu', input_dim=NUM_OF_INPUTS))
+        model.add(Dense(activation="relu", input_dim=NUM_OF_INPUTS, units=120))
         model.add(Dropout(0.15))
-        model.add(Dense(output_dim=120, activation='relu'))
+        model.add(Dense(activation="relu", units=120))
         model.add(Dropout(0.15))
-        model.add(Dense(output_dim=120, activation='relu'))
+        model.add(Dense(activation="relu", units=120))
         model.add(Dropout(0.15))
-        model.add(Dense(output_dim=3, activation='softmax'))
-        opt = Adam(self.learning_rate)
-        model.compile(loss='mse', optimizer=opt)
+        model.add(Dense(activation="softmax", units=3))
+        model.compile(loss='mse', optimizer=Adam(self.learning_rate))
 
         if weights:
             model.load_weights(weights)
@@ -136,18 +159,16 @@ class Agent:
         return model
 
     def get_action(self, prev_state, prev_direction, possible_actions, game_counter):
-        """returns a random action (up, down, right, left)"""
+        """returns a random or predicted action (forward, right, left)"""
         if random.uniform(0, 1) < self.epsilon:
             current_direction = possible_actions[randint(0, 2)]
-            # current_direction = to_categorical(randint(0, 2), num_classes=3) # I don't want to use this as I don't need to include the action
             self.random_move = True
             self.random_moves += 1
         else:
-            prediction = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS)))
-            # current_direction = to_categorical(np.argmax(prediction[0]), num_classes=3) # I don't want to use this as I don't need to include the action
-            current_direction = possible_actions[np.argmax(prediction[0])] # will this work?
+            prediction = self.model.predict(prev_state.reshape((1, NUM_OF_INPUTS))) # reshape: make another shape: matrix: 2D-Array
+            current_direction = possible_actions[np.argmax(prediction[0])]
             self.random_move = False
-        return current_direction
+        return current_direction # aka action
 
     def train_short_memory(self, prev_state, action, reward, current_state, game_over):
         target = reward
@@ -159,8 +180,8 @@ class Agent:
 
     def replay_new(self, memory):
 
-        if len(memory) > 1000:
-            minibatch = random.sample(memory, 1000)
+        if len(memory) > STEPS_INTO_FUTURE:
+            minibatch = random.sample(memory, STEPS_INTO_FUTURE)
         else:
             minibatch = memory
 
@@ -191,6 +212,7 @@ class Snake:
         self.current_direction = INIT_DIRECTION # up
         self.current_relative_direction = 'forward'
         self.prev_relative_direction = 'forward'
+        self.fitness = 0 # accumulated reward
 
     def set_current_relative_direction(self, current_direction, previous_direction):
         if current_direction == previous_direction:
@@ -219,11 +241,8 @@ class Snake:
     def calc_destination(self, direction):
         """add diff_xy to snake_head"""
         diff_xy = self.MAP[direction]
-        # print("diff_xy: {}".format(diff_xy))
         snake_head = self.snake_body[0]
-        # print("snake_head: {}".format(snake_head))
         destination = [a_i + b_i for a_i, b_i in zip(diff_xy, snake_head)]
-        # print("destination: {}".format(destination))
         return destination
 
     def valid_move(self, destination):
@@ -292,9 +311,16 @@ class Snake:
         if game.recent_visit:
             self.reward += -3
             game.recent_visit = False
+
+        self.set_accumulated_fitness(self.reward)
+
         return self.reward
 
+    def set_accumulated_fitness(self, reward):
+        self.fitness += reward
+
     def get_close_sight(self, direction):
+        '''returns the immediate neighbours'''
         neighbours = []
         if direction == 'up':
             neighbours.append(self.calc_destination('up')) # forward
@@ -410,6 +436,7 @@ class Game:
 
         # dangers
         neighbours = self.snake.get_close_sight(direction)
+
         for n in neighbours:
             if self.snake.valid_move(n) and not self.snake.self_collision(n):
                 state.append(False) # no danger
@@ -445,24 +472,33 @@ class Game:
         self.game_states.append(copy.deepcopy(self.board.board))
         self.board.draw_board(PRINT_MODE, self.board.board, self)
 
-    def initial_update(self, simulation, agent, game):
-        prev_state = self.get_state(PREV_DIRECTION, game.snake.prev_relative_direction)
+    def initial_update(self, simulation, agent):
+        prev_state = self.get_state(PREV_DIRECTION, self.snake.prev_relative_direction)
         self.snake.set_possible_actions(self.prev_direction)
         self.snake.current_direction = INIT_DIRECTION
-        game.snake.set_current_relative_direction(self.snake.current_direction, PREV_DIRECTION)
+        self.snake.set_current_relative_direction(self.snake.current_direction, PREV_DIRECTION)
         self.update(INIT_DIRECTION)
         current_state = self.get_state(self.snake.current_direction, self.snake.current_relative_direction)
-        reward = self.snake.set_reward(self.game_over, game)
-        agent.train_short_memory(prev_state, RELATIVE_DIRECTION[game.snake.current_relative_direction], reward, current_state, self.game_over)
-        agent.memory.append((prev_state, RELATIVE_DIRECTION[game.snake.current_relative_direction], reward, current_state, self.game_over))
+        reward = self.snake.set_reward(self.game_over, self)
+        agent.train_short_memory(prev_state, RELATIVE_DIRECTION[self.snake.current_relative_direction], reward, current_state, self.game_over)
+        agent.memory.append((prev_state, RELATIVE_DIRECTION[self.snake.current_relative_direction], reward, current_state, self.game_over))
         simulation.set_high_score(self.score)
         self.game_steps += 1
         self.prev_direction = INIT_DIRECTION
         print('current_state:\t{}'.format(current_state)) if PRINT_MODE else print(end='')
-        print('{} ({})\trandom_move={}\tepsilon={}%'.format(game.snake.current_direction, game.snake.current_relative_direction, agent.random_move, int(agent.epsilon*100))) if PRINT_MODE else print(end='')
+        print('{} ({})\trandom_move={}\tstep={}\treward={}\tepsilon={}%'.format(
+            self.snake.current_direction,
+            self.snake.current_relative_direction,
+            agent.random_move,
+            self.game_steps,
+            reward,
+            self.snake.fitness,
+            int(agent.epsilon*100)),
+        ) if PRINT_MODE else print(end='')
         print('memory_length={}'.format(len(agent.memory))) if PRINT_MODE else print(end='')
+        print()
         # pprint.pprint(agent.memory) if PRINT_MODE else print(end='')
-        # time.sleep(0.05)
+        time.sleep(0.05)
 
 
 class Simulation:
@@ -477,14 +513,20 @@ class Simulation:
         self.high_score = 0
         self.total_game_steps = 0
         self.total_epsilon = 0
+        self.total_fitness = 0
         self.avg_steps = 1
         self.avg_epsilon = 0
+        self.avg_fitness = 0
         self.random_move_death = 0
+        self.model_name = MODEL_NAME + '_' + str(MODEL_NUMBER) + MODEL_EXTENSION # default
 
     def plot_seaborn(self, array_counter, array_score):
         sns.set(color_codes=True)
         ax = sns.regplot(np.array([array_counter])[0], np.array([array_score])[0], color="b", x_jitter=.1, line_kws={'color':'green'})
         ax.set(xlabel='games', ylabel='score')
+        new_array_counter = [x + 1 for x in array_counter]
+        slope, intercept = np.polyfit(np.log(np.array(new_array_counter)), np.log(np.array(array_score)), 1)
+        print('slope={}\tintercept={}'.format(slope, intercept))
         plt.savefig('plot_figure.png')
         plt.show()
 
@@ -501,20 +543,25 @@ class Simulation:
     def replay_game(self, game):
         for current_board in game.game_states:
             game.board.draw_board(True, current_board, game)
-            print()
             time.sleep(0.05)
+            print()
 
     def set_high_score(self, score):
         if score >= self.high_score:
             self.high_score = score
 
-    def run(self, num_of_iterations, MIN_EPSILON, MAX_EPSILON):
+    def run(self, episodes, MIN_EPSILON, MAX_EPSILON):
 
-        for game in tqdm(range(num_of_iterations)): # simulation-loop (continue training until user stops simulation)
+        print()
+        print(t.bold('🤓 Welcome to: ') + t.bold_green('🐍 The Python Snake Simulation 🐍'))
+        print()
+        time.sleep(1.2)
+
+        for _ in tqdm(range(episodes)): # simulation-loop (continue training until user stops simulation)
             print('====== game {} ======'.format(self.game_counter)) if PRINT_MODE else print(end='')
             game = Game()
             game.board.set_snake(game)
-            game.initial_update(self, self.agent, game)
+            game.initial_update(self, self.agent)
 
             while not game.game_over: # game-loop
                 prev_state = game.get_state(game.prev_direction, game.snake.prev_relative_direction)
@@ -530,44 +577,67 @@ class Simulation:
                 game.prev_direction = game.snake.current_direction
                 game.snake.prev_relative_direction = game.snake.current_relative_direction
                 print('current_state:\t{}'.format(current_state)) if PRINT_MODE else print(end='')
-                print('{} ({})\trandom_move={}\tepsilon={}%'.format(game.snake.current_direction, game.snake.current_relative_direction, self.agent.random_move, int(self.agent.epsilon*100))) if PRINT_MODE else print(end='')
+                print('{} ({})\trandom_move={}\tstep={}\treward={}\tfitness={}\tepsilon={}%'.format(
+                    game.snake.current_direction,
+                    game.snake.current_relative_direction,
+                    self.agent.random_move,
+                    game.game_steps,
+                    t.bold_red(str(reward)) if reward < 0 else t.bold_green(str(reward)),
+                    game.snake.fitness,
+                    int(self.agent.epsilon*100)),
+                ) if PRINT_MODE else print(end='')
                 print('memory_length={}'.format(len(self.agent.memory))) if PRINT_MODE else print(end='')
+                print() if PRINT_MODE else print(end='')
                 # pprint.pprint(self.agent.memory) if PRINT_MODE else print(end='')
-                # time.sleep(0.05)
+                time.sleep(0.05)
                 game.game_steps += 1
                 if game.game_steps > 500:
                     game.game_over = True
                 if self.agent.epsilon > MIN_EPSILON:
-                    self.agent.epsilon *= EPSILON_FACTOR
+                    self.agent.epsilon *= EPSILON_DECAY
 
             if self.agent.random_move:
                 self.random_move_death += 1
 
-            self.total_game_steps += game.game_steps
-            self.total_epsilon += self.agent.epsilon
             self.agent.replay_new(self.agent.memory)
+
             self.games.append(game) # append game to the list of games
             self.score_plot.append(game.score)
             self.counter_plot.append(self.game_counter)
+
+            self.total_game_steps += game.game_steps
+            self.total_epsilon += self.agent.epsilon
+            self.total_fitness += game.snake.fitness
+
             self.avg_steps = self.total_game_steps / (self.game_counter + 1)
             self.avg_epsilon = self.total_epsilon / (self.game_counter + 1)
-            print()
-            print('avg: avg_steps:{}\tavg_epsilon:{}%'.format(round(self.avg_steps, 2), round(self.avg_epsilon, 2)))
-            print('current: game:{}\tscore:{}\thigh_score:{}\tpredicted_moves:{}/{} ({})%\tsuicides:{}/{}'.format(self.game_counter, game.score, self.high_score, (game.game_steps - self.agent.random_moves), game.game_steps, int(((game.game_steps - self.agent.random_moves) / game.game_steps)*100), (self.game_counter+1) - self.random_move_death, self.game_counter+1))
-            print('====== end of game ======')
-            print()
+            self.avg_fitness = self.total_fitness / (self.game_counter + 1)
+
+            print() if PRINT_MODE else print(end='')
+            print('avg: avg_steps:{}\tavg_epsilon:{}%\tavg_fitness:{}'.format(round(self.avg_steps, 2), round(self.avg_epsilon, 2), round(self.avg_fitness))) if PRINT_MODE else print(end='')
+            print('current: game:{}\tscore:{}\thigh_score:{}\tpredicted_moves:{}/{} ({})%\tsuicides:{}/{}'.format(self.game_counter, game.score, self.high_score, (game.game_steps - self.agent.random_moves), game.game_steps, int(((game.game_steps - self.agent.random_moves) / game.game_steps)*100), (self.game_counter+1) - self.random_move_death, self.game_counter+1)) if PRINT_MODE else print(end='')
+            print('====== end of game ======') if PRINT_MODE else print(end='')
+            print() if PRINT_MODE else print(end='')
             self.agent.random_moves = 0
             time.sleep(1.2)
-            os.system('clear')
             self.game_counter += 1
 
-        self.agent.model.save_weights('my_weights_02.hdf5') # save model
         self.plot_seaborn(self.counter_plot, self.score_plot)
         best_game = simulation.get_best_game()
         simulation.replay_game(best_game)
-        print('Simulation done: Saving Model as:', MODEL_NAME) if PRINT_MODE else print(end='')
+
+        print(t.bold_blue('Simulation done! Well done to our Python 🐍'))
+        self.model_name = input("Model name: (stash s, leave blank for default): ")
+        if not self.model_name == 's':
+            self.agent.model.save_weights(str(self.model_name + MODEL_EXTENSION))
+            print(t.bold_green('Saving model as: ') + self.model_name + MODEL_EXTENSION)
+        else:
+            print(t.bold_red('Model has been stashed!'))
 
 
-import ipdb; ipdb.set_trace()
-simulation = Simulation()
-simulation.run(NUM_OF_ITERATIONS, MIN_EPSILON=MIN_EPSILON, MAX_EPSILON=MAX_EPSILON)
+if __name__ == '__main__':
+    t = Terminal()
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+    simulation = Simulation()
+    simulation.run(EPISODES, MIN_EPSILON=MIN_EPSILON, MAX_EPSILON=MAX_EPSILON)

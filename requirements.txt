@@ -2,6 +2,7 @@ absl-py==0.7.0
 appnope==0.1.0
 astor==0.7.1
 backcall==0.1.0
+blessings==1.7
 colorama==0.4.1
 cycler==0.10.0
 decorator==4.3.2
