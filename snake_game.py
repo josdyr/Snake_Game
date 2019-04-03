@@ -1,4 +1,4 @@
-import random, time, sys, os, copy, pprint, math, blessings
+import random, time, sys, os, copy, pprint, math, blessings, csv
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -14,33 +14,34 @@ from tqdm import tqdm
 from blessings import Terminal
 
 
-# Hyper-Parameters
+## Hyper-Parameters ##
+IDX = 0
+
+## Simulation
+EPISODES = 40
+PRINT_MODE = True
+BOARD_SIZE = 6
+INIT_SNAKE_POSITIONS = [[math.floor(BOARD_SIZE/2), math.floor(BOARD_SIZE/2)]]
+INIT_POSITION = INIT_SNAKE_POSITIONS[0]
+NUMBER_OF_APPLES = 1
+STEPS_INTO_FUTURE = 1000
+
+## Neural Network
+NUM_OF_INPUTS = 9
+UNITS = [30, 60, 90, 120] # BOARD_SIZE ** 2 # BOARD_SIZE^2 - default
 EPSILON_DECAY = .998
 MAX_EPSILON = .0
 MIN_EPSILON = .0
 GAMMA = .8 # discount rate
 ANTI_EXPLORATION_COUNT = 10
-STEPS_INTO_FUTURE = 1000
 
-EPISODES = 30
-NUM_OF_INPUTS = 9
+## Constants ##
 
-BOARD_SIZE = 5
-
-INIT_SNAKE_POSITIONS = [[math.floor(BOARD_SIZE/2), math.floor(BOARD_SIZE/2)]]
-INIT_POSITION = INIT_SNAKE_POSITIONS[0]
-
-PRINT_MODE = True
-
-
-# Constants
 INIT_DIRECTION = 'up'
 PREV_DIRECTION = 'up'
-
 MODEL_NAME = 'weights'
 MODEL_NUMBER = 0
 MODEL_EXTENSION = '.hdf5'
-
 OPPOSITE_DIRECTION = {
     'up': 'down',
     'down': 'up',
@@ -52,24 +53,6 @@ RELATIVE_DIRECTION = {
     'right': [0, 1, 0],
     'left': [0, 0, 1]
 }
-TOOLBAR_WIDTH = 40
-
-
-# class TestMethods(unittest.TestCase):
-#
-#     def test_get_close_sight(self):
-#         self.assertEqual(['up', 'right', 'left'], 'FOO')
-#
-#     def test_isupper(self):
-#         self.assertTrue('FOO'.isupper())
-#         self.assertFalse('Foo'.isupper())
-#
-#     def test_split(self):
-#         s = 'hello world'
-#         self.assertEqual(s.split(), ['hello', 'world'])
-#         # check that s.split fails when the separator is not a string
-#         with self.assertRaises(TypeError):
-#             s.split(2)
 
 
 class Board:
@@ -101,25 +84,47 @@ class Board:
         self.board[game.apple.apple[0]][game.apple.apple[1]] = game.apple
 
     def draw_board(self, print_mode, board, game):
+        dark_black = 235
         if print_mode:
             for x, row in enumerate(board):
                 for y, col in enumerate(row):
                     if board[x][y] == game.snake.snake_body[0]:
                         print(t.bold_blue("[H]"), end='')
                     elif isinstance(board[x][y], Apple):
-                        print("{}".format("[ ]" if col is None else t.bold_green("[A]")), end='')
+                        print("{}".format(t.bold("[ ]") if col is None else t.bold_green("[A]")), end='')
                     else:
-                        print("{}".format("[ ]" if col is None else "[B]"), end='')
+                        print("{}".format(t.bold("[ ]") if col is None else t.color(dark_black)("[B]")), end='')
+                        if dark_black < 255:
+                            dark_black += 1
                 print()
+
+    # def draw_board(self, print_mode, board, game):
+    #     dark_black = 235
+    #     if print_mode:
+    #         for x, row in enumerate(board):
+    #             for y, col in enumerate(row):
+    #                 # import ipdb; ipdb.set_trace()
+    #                 for body_idx, body in enumerate(game.snake.snake_body[1:]):
+    #                     if game.snake.snake_body[0] == board[x][y]:
+    #                         print(t.bold_blue("[H]"), end='')
+    #                     if game.snake.snake_body[body_idx] == board[x][y]:
+    #                         print(t.color(dark_black + body_idx)("[B]"), end='')
+    #
+    #                 if isinstance(board[x][y], Apple):
+    #                     print("{}".format(t.bold("[ ]") if col is None else t.bold_green("[A]")), end='')
+    #                 else:
+    #                     print("{}".format(t.bold("[ ]") if col is None else t.color(dark_black)("[B]")), end='')
+    #             print()
+
 
     def __str__(self):
         board_str = ""
         for row in self.board:
             for col in row:
                 if col is None:
-                    board_str += "[" + str(col) + "],"
+                    board_str += "[ ]"
                 else:
-                    board_str += str(col) + ","
+                    board_str += str(col)
             board_str += "\n"
         return board_str
 
@@ -134,21 +139,21 @@ class Agent:
         self.agent_target = 1
         self.agent_predict = 0
         self.learning_rate = 0.0005
-        self.model = self.neural_network()
-        # self.model = self.neural_network("my_weights_02.hdf5")
+        self.model = self.neural_network(UNITS)
+        # self.model = self.neural_network(UNITS, "models/my_weights_02.hdf5")
         self.epsilon = MAX_EPSILON
         self.actual = []
         self.memory = []
         self.random_move = True
         self.random_moves = 1 # first move is 'considered' a random move (although it is always forced: 'up')
 
-    def neural_network(self, weights=None):
+    def neural_network(self, units=UNITS, weights=None):
         model = Sequential()
-        model.add(Dense(activation="relu", input_dim=NUM_OF_INPUTS, units=120))
+        model.add(Dense(activation="relu", input_dim=NUM_OF_INPUTS, units=units))
         model.add(Dropout(0.15))
-        model.add(Dense(activation="relu", units=120))
+        model.add(Dense(activation="relu", units=units))
         model.add(Dropout(0.15))
-        model.add(Dense(activation="relu", units=120))
+        model.add(Dense(activation="relu", units=units))
         model.add(Dropout(0.15))
         model.add(Dense(activation="softmax", units=3))
         model.compile(loss='mse', optimizer=Adam(self.learning_rate))
@@ -266,7 +271,7 @@ class Snake:
 
         if self.apple_collision(destination, tail, game):
             tail = None
-            game.apple = Apple(self.snake_body)
+            game.apple = Apple(self.snake_body, NUMBER_OF_APPLES)
             game.board.set_apple(game)
             self.did_eat = True
             game.score += 1
@@ -351,28 +356,29 @@ class Snake:
             self.possible_actions = ['left', 'up', 'down']
 
     def __str__(self):
-        return "Snake({})".format(self.snake_body)
+        return t.color(11)("[B]")
 
     def __repr__(self):
-        return "Snke"
+        return t.color(11)("[B]")
 
 
 class Apple:
     """Initiates an apple with a random position, unless spesified"""
 
-    def __init__(self, snake_body, apple=None):
+    def __init__(self, snake_body, number_of_apples, apple=None):
         if apple is None:
-            self.spawn_apple(snake_body)
+            for _ in range(number_of_apples):
+                self.spawn_apple(snake_body)
         else:
             self.apple = apple
 
     def spawn_apple(self, snake_body):
         self.apple = [random.randint(0, BOARD_SIZE-1), random.randint(0, BOARD_SIZE-1)]
         if self.apple in snake_body:
-            self.spawn_apple(snake_body)
+            self.spawn_apple(snake_body) # recursive
 
     def __repr__(self):
-        return "Appl"
+        return t.color(213)("[A]")
 
 
 class Game:
@@ -386,7 +392,7 @@ class Game:
     def __init__(self):
         self.snake = Snake(INIT_SNAKE_POSITIONS[:])
         self.board = Board()
-        self.apple = Apple(self.snake.snake_body)
+        self.apple = Apple(self.snake.snake_body, NUMBER_OF_APPLES)
         self.score = 0
         self.game_steps = 0
         self.prev_direction = ''
@@ -520,15 +526,21 @@ class Simulation:
         self.random_move_death = 0
         self.model_name = MODEL_NAME + '_' + str(MODEL_NUMBER) + MODEL_EXTENSION # default
 
+    def exponenial_func(self, x, a, b, c):
+        return a*np.exp(-b*x)+c
+
     def plot_seaborn(self, array_counter, array_score):
         sns.set(color_codes=True)
         ax = sns.regplot(np.array([array_counter])[0], np.array([array_score])[0], color="b", x_jitter=.1, line_kws={'color':'green'})
         ax.set(xlabel='games', ylabel='score')
         new_array_counter = [x + 1 for x in array_counter]
-        slope, intercept = np.polyfit(np.log(np.array(new_array_counter)), np.log(np.array(array_score)), 1)
+        new_array_score = [y + 1 for y in array_score]
+        slope, intercept = np.polyfit(np.log(np.array(new_array_counter)), np.log(np.array(new_array_score)), 1)
         print('slope={}\tintercept={}'.format(slope, intercept))
         plt.savefig('plot_figure.png')
-        plt.show()
+        # plt.show()
+
+        return slope, intercept
 
     def get_best_game(self):
         if self.games:
@@ -550,14 +562,16 @@ class Simulation:
         if score >= self.high_score:
             self.high_score = score
 
-    def run(self, episodes, MIN_EPSILON, MAX_EPSILON):
-
+    def run(self):
         print()
-        print(t.bold('🤓 Welcome to: ') + t.bold_green('🐍 The Python Snake Simulation 🐍'))
         print()
-        time.sleep(1.2)
+        os.system('clear')
+        print(t.bold('Welcome to: ') + t.bold_green_underline('🐍 The Python Snake Simulation 🐍'), end=' ')
+        print("🤓👌👌👌👌👌")
+        print()
+        time.sleep(2)
 
-        for _ in tqdm(range(episodes)): # simulation-loop (continue training until user stops simulation)
+        for _ in tqdm(range(EPISODES)): # simulation-loop (continue training until user stops simulation)
             print('====== game {} ======'.format(self.game_counter)) if PRINT_MODE else print(end='')
             game = Game()
             game.board.set_snake(game)
@@ -622,9 +636,25 @@ class Simulation:
             time.sleep(1.2)
             self.game_counter += 1
 
-        self.plot_seaborn(self.counter_plot, self.score_plot)
-        best_game = simulation.get_best_game()
-        simulation.replay_game(best_game)
+        slope, intercept = self.plot_seaborn(self.counter_plot, self.score_plot)
+        slope = float(slope)
+        intercept = float(intercept)
+        data = []
+        data.append(EPISODES)
+        data.append(UNITS)
+        data.append(BOARD_SIZE)
+        data.append(slope)
+        data.append(intercept)
+        data.append(self.avg_fitness)
+
+        # best_game = simulation.get_best_game()
+        # simulation.replay_game(best_game)
+
+        # make a .csv file
+        with open('all_runs.csv', 'a') as writeFile:
+            writer = csv.writer(writeFile)
+            writer.writerow(data)
+        writeFile.close()
 
         print(t.bold_blue('Simulation done! Well done to our Python 🐍'))
         self.model_name = input("Model name: (stash s, leave blank for default): ")
@@ -638,6 +668,12 @@ class Simulation:
 if __name__ == '__main__':
     t = Terminal()
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    print(t.color(213)('For f* sake!'))
+    time.sleep(0.1)
 
-    simulation = Simulation()
-    simulation.run(EPISODES, MIN_EPSILON=MIN_EPSILON, MAX_EPSILON=MAX_EPSILON)
+    for i in range(4):
+        UNITS = [60, 90, 120, 150]
+        UNITS = UNITS[i]
+
+        simulation = Simulation()
+        simulation.run()
