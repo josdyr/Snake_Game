@@ -124,16 +124,16 @@ for episode in range(300): # 1500 10000
         total_reward += reward
 
         print("reward:", reward, "state:", state, "action:", action, "episode:", episode, "steps:", steps, "total_reward:", total_reward, "epsilon:", agent.epsilon)
-        # env.render()
+        env.render()
 
         # print(agent.q_table)
 
-        # time.sleep(.01)
+        time.sleep(.01)
         clear_output(wait=True)
         steps += 1
 
     print(t.bold_red("Fell into a hole.")) if reward == 0.0 else print(t.bold_green("Success!"))
-    # time.sleep(.7)
+    time.sleep(.7)
 
     # how many times it fell into a hole vs success per episode
     agent.episode_plot.append(episode)
